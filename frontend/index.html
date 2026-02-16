@@ -12,7 +12,7 @@
 
   <script>
     async function loadPillars() {
-      const res = await fetch('http://localhost:3000/pillars');
+      const res = await fetch('https://insight-vault-58jj.onrender.com/pillars');
       const data = await res.json();
       const list = document.getElementById('list');
       list.innerHTML = '';
