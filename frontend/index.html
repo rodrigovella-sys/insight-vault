@@ -1,0 +1,27 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Insight Vault</title>
+</head>
+<body>
+  <h1>Insight Vault – Bilingual</h1>
+  <button onclick="loadPillars()">Load Pillars</button>
+  <ul id="list"></ul>
+
+  <script>
+    async function loadPillars() {
+      const res = await fetch('http://localhost:3000/pillars');
+      const data = await res.json();
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+      data.forEach(p => {
+        const li = document.createElement('li');
+        li.innerText = p.id + ' - ' + p.name_en + ' / ' + p.name_pt;
+        list.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>
