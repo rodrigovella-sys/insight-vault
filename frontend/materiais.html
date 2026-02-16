@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Insight Vault — Materiais</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 40px; line-height: 1.4; }
+    h1 { margin: 0 0 10px; }
+    .muted { color: #555; margin: 0 0 24px; }
+    .box { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 14px 0; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    a.btn {
+      display: inline-block; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid #111; text-decoration: none; color: #111;
+    }
+    a.btn.primary { background: #111; color: #fff; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 6px; }
+    ul { margin: 10px 0 0 18px; }
+  </style>
+</head>
+<body>
+  <h1>Insight Vault — Materiais</h1>
+  <p class="muted">
+    Página rápida para abrir/baixar materiais. (Hospedado no seu Static Site do Render)
+  </p>
+
+  <div class="box">
+    <h2>Dashboard</h2>
+    <p>Voltar ao app principal:</p>
+    <div class="row">
+      <a class="btn primary" href="./index.html">Abrir Insight Vault</a>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>Hábitos</h2>
+    <p>Arquivos relacionados ao tema “Hábitos & Disciplina”.</p>
+    <ul>
+      <li><strong>PDF</strong> (recomendado): <code>frontend/assets/habitos.pdf</code></li>
+      <li><strong>HTML</strong> (opcional): <code>frontend/assets/habitos.html</code></li>
+    </ul>
+    <div class="row">
+      <a class="btn primary" href="./assets/habitos.pdf" target="_blank" rel="noopener">Abrir PDF</a>
+      <a class="btn" href="./assets/habitos.pdf" download>Baixar PDF</a>
+      <a class="btn" href="./assets/habitos.html" target="_blank" rel="noopener">Abrir versão HTML</a>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>Outros materiais</h2>
+    <p>Coloque aqui seus links adicionais (ex.: leituras, checklists, etc.).</p>
+    <div class="row">
+      <a class="btn" href="./assets/leitura.pdf" target="_blank" rel="noopener">Abrir Leitura (exemplo)</a>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>API</h2>
+    <p>Links úteis para validar o backend:</p>
+    <ul>
+      <li><a href="https://insight-vault-58jj.onrender.com/health" target="_blank" rel="noopener">/health</a></li>
+      <li><a href="https://insight-vault-58jj.onrender.com/pillars" target="_blank" rel="noopener">/pillars</a></li>
+    </ul>
+  </div>
+
+  <p class="muted">Dica: depois de commitar, acesse: <code>https://insight-vault-1.onrender.com/materiais.html</code></p>
+</body>
+</html>
