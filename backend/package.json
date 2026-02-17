@@ -16,7 +16,8 @@
     "uuid": "^9.0.1",
     "youtube-transcript": "^1.2.1",
     "axios": "^1.7.2",
-    "sql.js": "^1.10.3"
+    "sql.js": "^1.10.3",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
