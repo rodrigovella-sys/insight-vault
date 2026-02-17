@@ -1,4 +1,4 @@
-// backend/server.js — Insight Vault MVP v2
+// backend/server.js — Insight Vault MVP v2.1
 require("dotenv").config();
 const express  = require("express");
 const cors     = require("cors");
@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require("uuid");
 const OpenAI   = require("openai");
 const { YoutubeTranscript } = require("youtube-transcript");
 const initSqlJs = require("sql.js");
+const pdfParse  = require("pdf-parse");
 
 const app = express();
 app.use(express.json());
@@ -30,7 +31,6 @@ async function initDB() {
   } else {
     db = new SQL.Database();
   }
-
   db.run(`
     CREATE TABLE IF NOT EXISTS items (
       id          TEXT PRIMARY KEY,
@@ -52,7 +52,6 @@ async function initDB() {
       updated_at  TEXT DEFAULT (datetime('now'))
     );
   `);
-
   db.run(`
     CREATE TABLE IF NOT EXISTS classification_log (
       id          TEXT PRIMARY KEY,
@@ -64,7 +63,6 @@ async function initDB() {
       created_at  TEXT DEFAULT (datetime('now'))
     );
   `);
-
   saveDB();
   console.log("Database ready.");
 }
@@ -166,7 +164,7 @@ Return exactly this JSON structure:
 Rules:
 - tags: 3-7 lowercase keywords
 - confidence: 0.0 to 1.0
-- suggest_new_topic: only if content doesn't fit existing topics; otherwise null
+- suggest_new_topic: only if content does not fit existing topics; otherwise null
 - pillar_id must be one of: P1, P2, P3, P4, P5, P6, P7, P8`;
 
   const userPrompt = `Filename: ${filename}\n\nContent:\n${text.slice(0, 4000)}`;
@@ -194,11 +192,22 @@ Rules:
   };
 }
 
-// ── Text extraction ────────────────────────
-function extractText(filePath, originalname) {
+// ── Text extraction (TXT, MD, PDF) ─────────
+async function extractText(filePath, originalname) {
   const ext = path.extname(originalname).toLowerCase();
-  if ([".txt",".md"].includes(ext)) return fs.readFileSync(filePath, "utf8");
-  return `[File: ${originalname}] — binary content, extraction pending.`;
+  if ([".txt", ".md"].includes(ext)) {
+    return fs.readFileSync(filePath, "utf8");
+  }
+  if (ext === ".pdf") {
+    try {
+      const dataBuffer = fs.readFileSync(filePath);
+      const data = await pdfParse(dataBuffer);
+      return data.text || "[PDF sem texto extraível]";
+    } catch (e) {
+      return `[Erro ao ler PDF: ${e.message}]`;
+    }
+  }
+  return `[Arquivo ${originalname} — extração pendente]`;
 }
 
 // ── YouTube helper ─────────────────────────
@@ -223,7 +232,7 @@ app.get("/health", (_, res) => {
   const row = dbGet("SELECT COUNT(*) as n FROM items");
   res.json({
     status: "ok",
-    version: "2.0.0",
+    version: "2.1.0",
     items: row ? row.n : 0,
     openai: !!process.env.OPENAI_API_KEY,
     timestamp: new Date().toISOString(),
@@ -259,7 +268,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
   const id = uuidv4();
   const { filename, originalname, mimetype, size, path: filePath } = req.file;
-  const text = extractText(filePath, originalname);
+  const text = await extractText(filePath, originalname);
 
   dbRun(
     `INSERT INTO items (id, filename, original, mimetype, size, text, status)
@@ -358,13 +367,13 @@ app.patch("/items/:id/confirm", (req, res) => {
 
   dbRun(
     `UPDATE items SET
-       pillar_id=COALESCE(?,pillar_id), pillar_name=COALESCE(?,pillar_name),
-       topic_id=COALESCE(?,topic_id),   topic_name=COALESCE(?,topic_name),
-       tags=COALESCE(?,tags),           summary=COALESCE(?,summary),
+       pillar_id=COALESCE(?,pillar_id),   pillar_name=COALESCE(?,pillar_name),
+       topic_id=COALESCE(?,topic_id),     topic_name=COALESCE(?,topic_name),
+       tags=COALESCE(?,tags),             summary=COALESCE(?,summary),
        status='confirmed', updated_at=datetime('now')
      WHERE id=?`,
-    [pillar_id, pillar_name, topic_id, topic_name,
-     tags ? JSON.stringify(tags) : null, summary, id]
+    [pillar_id||null, pillar_name||null, topic_id||null, topic_name||null,
+     tags ? JSON.stringify(tags) : null, summary||null, id]
   );
   const updated = dbGet("SELECT * FROM items WHERE id=?", [id]);
   res.json({ success: true, item: parseItem(updated) });
@@ -403,5 +412,5 @@ app.use("/uploads", express.static(UPLOAD_DIR));
 // ── Start ──────────────────────────────────
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
-  app.listen(PORT, () => console.log(`Insight Vault API v2 running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Insight Vault API v2.1 running on port ${PORT}`));
 });
