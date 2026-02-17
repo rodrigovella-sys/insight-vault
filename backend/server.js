@@ -7,9 +7,10 @@ const path     = require("path");
 const fs       = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const OpenAI   = require("openai");
+const { google } = require("googleapis");
+const axios    = require("axios");
 const initSqlJs = require("sql.js");
 const pdfParse  = require("pdf-parse");
-const { google } = require("googleapis");
 
 const app = express();
 app.use(express.json());
@@ -102,10 +103,7 @@ function dbAll(sql, params = []) {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ── YouTube API ────────────────────────────
-const youtube = google.youtube({
-  version: "v3",
-  auth: process.env.YOUTUBE_API_KEY,
-});
+const youtube = google.youtube({ version: "v3", auth: process.env.YOUTUBE_API_KEY });
 
 // ── Multer ─────────────────────────────────
 const storage = multer.diskStorage({
@@ -224,62 +222,37 @@ function extractYouTubeId(url) {
   return match ? match[1] : null;
 }
 
-async function getYouTubeTranscript(videoId) {
+async function getYouTubeCaptions(videoId) {
   try {
-    // Get captions list
-    const captionsRes = await youtube.captions.list({
+    const captionsResponse = await youtube.captions.list({
       part: "snippet",
       videoId: videoId,
     });
 
-    if (!captionsRes.data.items || captionsRes.data.items.length === 0) {
+    if (!captionsResponse.data.items || captionsResponse.data.items.length === 0) {
       throw new Error("No captions available for this video");
     }
 
-    // Find Portuguese or English caption
-    let caption = captionsRes.data.items.find(c => 
-      c.snippet.language === "pt" || c.snippet.language === "pt-BR"
-    );
-    if (!caption) {
-      caption = captionsRes.data.items.find(c => c.snippet.language === "en");
-    }
-    if (!caption) {
-      caption = captionsRes.data.items[0];
-    }
+    // Prefer Portuguese, then English, then any available
+    let caption = captionsResponse.data.items.find(c => c.snippet.language === "pt") ||
+                  captionsResponse.data.items.find(c => c.snippet.language === "en") ||
+                  captionsResponse.data.items[0];
 
-    // Download caption
-    const downloadRes = await youtube.captions.download({
-      id: caption.id,
-      tfmt: "srt",
+    // Note: Downloading actual caption text requires additional OAuth
+    // For now, we'll use video description + title as fallback
+    const videoResponse = await youtube.videos.list({
+      part: "snippet",
+      id: videoId,
     });
 
-    // Parse SRT to plain text
-    const srtText = downloadRes.data;
-    const lines = srtText.split("\n");
-    const textLines = lines.filter(line => 
-      line.trim() && 
-      !line.match(/^\d+$/) && 
-      !line.match(/\d{2}:\d{2}:\d{2}/)
-    );
-    
-    return textLines.join(" ").replace(/<[^>]*>/g, "");
-  } catch (error) {
-    // Fallback: get video description
-    try {
-      const videoRes = await youtube.videos.list({
-        part: "snippet",
-        id: videoId,
-      });
-      
-      if (videoRes.data.items && videoRes.data.items[0]) {
-        const description = videoRes.data.items[0].snippet.description;
-        return description || "No transcript or description available";
-      }
-    } catch (descError) {
-      throw new Error("Could not retrieve video content");
+    if (!videoResponse.data.items || videoResponse.data.items.length === 0) {
+      throw new Error("Video not found");
     }
-    
-    throw error;
+
+    const video = videoResponse.data.items[0].snippet;
+    return `Title: ${video.title}\n\nDescription: ${video.description}`;
+  } catch (err) {
+    throw new Error(`YouTube API error: ${err.message}`);
   }
 }
 
@@ -380,15 +353,11 @@ app.post("/youtube", async (req, res) => {
   if (!videoId) return res.status(400).json({ error: "Invalid YouTube URL." });
 
   if (!process.env.YOUTUBE_API_KEY) {
-    return res.status(400).json({ error: "YouTube API key not configured." });
+    return res.status(400).json({ error: "YOUTUBE_API_KEY not configured." });
   }
 
   try {
-    const text = await getYouTubeTranscript(videoId);
-
-    if (!text || text.length < 20) {
-      return res.status(422).json({ error: "Could not extract content from video." });
-    }
+    const text = await getYouTubeCaptions(videoId);
 
     const id = uuidv4();
     dbRun(
