@@ -1,4 +1,4 @@
-// backend/server.js — Insight Vault MVP v2.1
+// backend/server.js — Insight Vault MVP v2.2
 require("dotenv").config();
 const express  = require("express");
 const cors     = require("cors");
@@ -7,9 +7,9 @@ const path     = require("path");
 const fs       = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const OpenAI   = require("openai");
-const { YoutubeTranscript } = require("youtube-transcript");
 const initSqlJs = require("sql.js");
 const pdfParse  = require("pdf-parse");
+const { google } = require("googleapis");
 
 const app = express();
 app.use(express.json());
@@ -100,6 +100,12 @@ function dbAll(sql, params = []) {
 
 // ── OpenAI ─────────────────────────────────
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// ── YouTube API ────────────────────────────
+const youtube = google.youtube({
+  version: "v3",
+  auth: process.env.YOUTUBE_API_KEY,
+});
 
 // ── Multer ─────────────────────────────────
 const storage = multer.diskStorage({
@@ -210,12 +216,71 @@ async function extractText(filePath, originalname) {
   return `[Arquivo ${originalname} — extração pendente]`;
 }
 
-// ── YouTube helper ─────────────────────────
+// ── YouTube helpers ────────────────────────
 function extractYouTubeId(url) {
   const match = url.match(
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/
   );
   return match ? match[1] : null;
+}
+
+async function getYouTubeTranscript(videoId) {
+  try {
+    // Get captions list
+    const captionsRes = await youtube.captions.list({
+      part: "snippet",
+      videoId: videoId,
+    });
+
+    if (!captionsRes.data.items || captionsRes.data.items.length === 0) {
+      throw new Error("No captions available for this video");
+    }
+
+    // Find Portuguese or English caption
+    let caption = captionsRes.data.items.find(c => 
+      c.snippet.language === "pt" || c.snippet.language === "pt-BR"
+    );
+    if (!caption) {
+      caption = captionsRes.data.items.find(c => c.snippet.language === "en");
+    }
+    if (!caption) {
+      caption = captionsRes.data.items[0];
+    }
+
+    // Download caption
+    const downloadRes = await youtube.captions.download({
+      id: caption.id,
+      tfmt: "srt",
+    });
+
+    // Parse SRT to plain text
+    const srtText = downloadRes.data;
+    const lines = srtText.split("\n");
+    const textLines = lines.filter(line => 
+      line.trim() && 
+      !line.match(/^\d+$/) && 
+      !line.match(/\d{2}:\d{2}:\d{2}/)
+    );
+    
+    return textLines.join(" ").replace(/<[^>]*>/g, "");
+  } catch (error) {
+    // Fallback: get video description
+    try {
+      const videoRes = await youtube.videos.list({
+        part: "snippet",
+        id: videoId,
+      });
+      
+      if (videoRes.data.items && videoRes.data.items[0]) {
+        const description = videoRes.data.items[0].snippet.description;
+        return description || "No transcript or description available";
+      }
+    } catch (descError) {
+      throw new Error("Could not retrieve video content");
+    }
+    
+    throw error;
+  }
 }
 
 function parseItem(row) {
@@ -232,9 +297,10 @@ app.get("/health", (_, res) => {
   const row = dbGet("SELECT COUNT(*) as n FROM items");
   res.json({
     status: "ok",
-    version: "2.1.0",
+    version: "2.2.0",
     items: row ? row.n : 0,
     openai: !!process.env.OPENAI_API_KEY,
+    youtube: !!process.env.YOUTUBE_API_KEY,
     timestamp: new Date().toISOString(),
   });
 });
@@ -313,17 +379,16 @@ app.post("/youtube", async (req, res) => {
   const videoId = extractYouTubeId(url);
   if (!videoId) return res.status(400).json({ error: "Invalid YouTube URL." });
 
-  try {
-    let transcript;
-    try {
-      transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: "pt" });
-    } catch {
-      transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    }
+  if (!process.env.YOUTUBE_API_KEY) {
+    return res.status(400).json({ error: "YouTube API key not configured." });
+  }
 
-    const text = transcript.map(t => t.text).join(" ");
-    if (!text || text.length < 20)
-      return res.status(422).json({ error: "Transcript unavailable for this video." });
+  try {
+    const text = await getYouTubeTranscript(videoId);
+
+    if (!text || text.length < 20) {
+      return res.status(422).json({ error: "Could not extract content from video." });
+    }
 
     const id = uuidv4();
     dbRun(
@@ -412,5 +477,5 @@ app.use("/uploads", express.static(UPLOAD_DIR));
 // ── Start ──────────────────────────────────
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
-  app.listen(PORT, () => console.log(`Insight Vault API v2.1 running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Insight Vault API v2.2 running on port ${PORT}`));
 });
