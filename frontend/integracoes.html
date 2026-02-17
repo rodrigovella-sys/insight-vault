@@ -1,0 +1,123 @@
+← VOLTAR AO VAULT
+Canais de Entrada
+Todas as formas de alimentar o Vault automaticamente — do YouTube ao WhatsApp, sem esforço manual.
+1
+Ativo agora
+2
+Em construção
+5
+Integrações total
+8
+Pilares cobertos
+✦ FASE 1 — AGORA
+▶️
+YouTube
+Cole um link de vídeo → o Vault extrai a transcrição automática, resume e classifica nos 8 pilares. Sem precisar assistir de novo.
+✦ Ativo
+Prioridade #1
+COMO FUNCIONA
+
+1
+Cole o link do YouTube no Vault
+2
+Sistema busca a transcrição automática do vídeo
+3
+IA resume, extrai tags e classifica no pilar certo
+4
+Você confirma com 1 clique — salvo no Vault
+TECNOLOGIA
+
+youtube-transcript-api
+OpenAI GPT-4o-mini
+Node.js
+Express
+AÇÃO
+
+Ver instruções →
+YouTube — Configuração (5 minutos)
+
+Adicione estes 2 passos ao seu projeto existente no GitHub. Não precisa criar nada do zero.
+
+1. Adicionar ao package.json (dentro de "dependencies"):
+
+"youtube-transcript": "^1.2.1", "axios": "^1.7.2"
+2. Adicionar ao server.js (cole após os outros requires):
+
+// ── YouTube Integration ───────────────── const { YoutubeTranscript } = require('youtube-transcript'); // Extrai ID do vídeo de qualquer formato de URL function extractYouTubeId(url) { const match = url.match( /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/ ); return match ? match[1] : null; } // POST /youtube → { url: "https://youtube.com/watch?v=..." } app.post('/youtube', async (req, res) => { const { url } = req.body; if (!url) return res.status(400).json({ error: 'Missing url' }); const videoId = extractYouTubeId(url); if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' }); try { // 1. Buscar transcrição const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'pt' // tenta português; cai para inglês se não houver }).catch(() => YoutubeTranscript.fetchTranscript(videoId)); const text = transcript.map(t => t.text).join(' '); // 2. Inserir no banco como pendente const id = uuidv4(); db.prepare(` INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying') `).run(id, `yt_${videoId}`, url, 'video/youtube', text.length, text); // 3. Classificar com IA (mesma função do upload) const { result, logData } = await classifyWithAI(text, `YouTube: ${url}`); db.prepare(` UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=? `).run( result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id ); db.prepare(` INSERT INTO classification_log (id,item_id,prompt,response,model,tokens) VALUES (?,?,?,?,?,?) `).run(uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens); const item = db.prepare('SELECT * FROM items WHERE id=?').get(id); res.json({ success: true, item: parseItem(item) }); } catch (err) { res.status(500).json({ error: err.message }); } });
+⎘ Copiar código
+◎ FASE 2 — PRÓXIMO
+📱
+iPhone — Notes, Reminders & Voice
+Envie notas, lembretes e áudios do iPhone direto para o Vault via atalho (iOS Shortcuts). Sem abrir apps extras.
+◎ Em breve
+Prioridade #2
+COMO VAI FUNCIONAR
+
+1
+Instala atalho no iOS Shortcuts (1 vez)
+2
+Seleciona nota/áudio no iPhone → "Enviar ao Vault"
+3
+Vault transcreve áudio com Whisper API
+4
+IA classifica automaticamente
+TECNOLOGIA
+
+iOS Shortcuts
+OpenAI Whisper
+Webhook endpoint
+💬
+WhatsApp
+Encaminhe qualquer mensagem, áudio ou link para o número do Vault no WhatsApp. Classificado em segundos.
+◎ Em breve
+Prioridade #3
+COMO VAI FUNCIONAR
+
+1
+Número do Vault no WhatsApp (via Twilio ou Z-API)
+2
+Encaminhe ou escreva mensagem direto
+3
+Vault responde com a classificação feita
+TECNOLOGIA
+
+Twilio ou Z-API
+Webhook
+OpenAI Whisper
+○ FASE 3 — FUTURO
+🤖
+Claude + ChatGPT
+Salve projetos, conversas e insights das suas sessões de IA direto no Vault, com um clique ou automaticamente.
+○ Fase 3
+Prioridade #4
+TECNOLOGIA
+
+Extensão Chrome
+Claude API
+OpenAI API
+ROADMAP
+
+UPLOAD MANUAL
+Cole texto ou arquivo — já funciona
+EXTENSÃO CHROME
+Botão "Salvar no Vault" em claude.ai e chatgpt.com
+SINCRONIZAÇÃO AUTOMÁTICA
+Captura conversas marcadas automaticamente
+📓
+OneNote & OneDrive
+Sincronize cadernos do OneNote e documentos do OneDrive com classificação automática no Vault.
+○ Fase 3
+Prioridade #5
+TECNOLOGIA
+
+Microsoft Graph API
+OAuth 2.0
+OneDrive SDK
+O QUE VAI SINCRONIZAR
+
+→
+Páginas do OneNote
+→
+Documentos Word/PDF do OneDrive
+→
+Pastas selecionadas (não tudo)
