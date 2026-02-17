@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit
+.env
+
+# Database (local only)
+backend/vault.db
+backend/vault.db-journal
+
+# Uploads (local only)
+backend/uploads/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
