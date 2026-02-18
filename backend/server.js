@@ -1,4 +1,4 @@
-// backend/server.js — Insight Vault MVP v2.2
+// backend/server.js — Insight Vault MVP v2.3
 require("dotenv").config();
 const express  = require("express");
 const cors     = require("cors");
@@ -222,24 +222,13 @@ function extractYouTubeId(url) {
   return match ? match[1] : null;
 }
 
+function extractPlaylistId(url) {
+  const match = url.match(/[?&]list=([^&]+)/);
+  return match ? match[1] : null;
+}
+
 async function getYouTubeCaptions(videoId) {
   try {
-    const captionsResponse = await youtube.captions.list({
-      part: "snippet",
-      videoId: videoId,
-    });
-
-    if (!captionsResponse.data.items || captionsResponse.data.items.length === 0) {
-      throw new Error("No captions available for this video");
-    }
-
-    // Prefer Portuguese, then English, then any available
-    let caption = captionsResponse.data.items.find(c => c.snippet.language === "pt") ||
-                  captionsResponse.data.items.find(c => c.snippet.language === "en") ||
-                  captionsResponse.data.items[0];
-
-    // Note: Downloading actual caption text requires additional OAuth
-    // For now, we'll use video description + title as fallback
     const videoResponse = await youtube.videos.list({
       part: "snippet",
       id: videoId,
@@ -253,6 +242,39 @@ async function getYouTubeCaptions(videoId) {
     return `Title: ${video.title}\n\nDescription: ${video.description}`;
   } catch (err) {
     throw new Error(`YouTube API error: ${err.message}`);
+  }
+}
+
+async function getPlaylistVideos(playlistId) {
+  const videos = [];
+  let pageToken = null;
+
+  try {
+    do {
+      const response = await youtube.playlistItems.list({
+        part: "snippet",
+        playlistId: playlistId,
+        maxResults: 50,
+        pageToken: pageToken,
+      });
+
+      if (!response.data.items) break;
+
+      for (const item of response.data.items) {
+        videos.push({
+          videoId: item.snippet.resourceId.videoId,
+          title: item.snippet.title,
+          description: item.snippet.description,
+          url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
+        });
+      }
+
+      pageToken = response.data.nextPageToken;
+    } while (pageToken);
+
+    return videos;
+  } catch (err) {
+    throw new Error(`Playlist API error: ${err.message}`);
   }
 }
 
@@ -270,7 +292,7 @@ app.get("/health", (_, res) => {
   const row = dbGet("SELECT COUNT(*) as n FROM items");
   res.json({
     status: "ok",
-    version: "2.2.0",
+    version: "2.3.0",
     items: row ? row.n : 0,
     openai: !!process.env.OPENAI_API_KEY,
     youtube: !!process.env.YOUTUBE_API_KEY,
@@ -344,7 +366,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// ── YouTube ────────────────────────────────
+// ── YouTube single video ───────────────────
 app.post("/youtube", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "Missing url." });
@@ -388,6 +410,60 @@ app.post("/youtube", async (req, res) => {
     res.json({ success: true, item: parseItem(item) });
   } catch (err) {
     console.error("YouTube error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── YouTube playlist import ────────────────
+app.post("/youtube/playlist", async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: "Missing url." });
+
+  const playlistId = extractPlaylistId(url);
+  if (!playlistId) return res.status(400).json({ error: "Invalid playlist URL." });
+
+  if (!process.env.YOUTUBE_API_KEY || !process.env.OPENAI_API_KEY) {
+    return res.status(400).json({ error: "API keys not configured." });
+  }
+
+  try {
+    const videos = await getPlaylistVideos(playlistId);
+    const results = [];
+
+    for (const video of videos) {
+      const text = `Title: ${video.title}\n\nDescription: ${video.description}`;
+      const id = uuidv4();
+
+      dbRun(
+        `INSERT INTO items (id, filename, original, mimetype, size, text, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'classifying')`,
+        [id, `yt_${video.videoId}`, video.url, "video/youtube", text.length, text]
+      );
+
+      try {
+        const { result, logData } = await classifyWithAI(text, video.title);
+        dbRun(
+          `UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?,
+           topic_id=?, topic_name=?, confidence=?, rationale=?,
+           status='classified', updated_at=datetime('now') WHERE id=?`,
+          [result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name,
+           result.topic_id, result.topic_name, result.confidence, result.rationale, id]
+        );
+        dbRun(
+          `INSERT INTO classification_log (id, item_id, prompt, response, model, tokens)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens]
+        );
+        results.push({ success: true, video: video.title, id });
+      } catch (err) {
+        dbRun("UPDATE items SET status='error', rationale=? WHERE id=?", [err.message, id]);
+        results.push({ success: false, video: video.title, error: err.message });
+      }
+    }
+
+    res.json({ success: true, total: videos.length, imported: results.filter(r => r.success).length, results });
+  } catch (err) {
+    console.error("Playlist error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -446,5 +522,5 @@ app.use("/uploads", express.static(UPLOAD_DIR));
 // ── Start ──────────────────────────────────
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
-  app.listen(PORT, () => console.log(`Insight Vault API v2.2 running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Insight Vault API v2.3 running on port ${PORT}`));
 });
