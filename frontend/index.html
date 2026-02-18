@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -142,6 +143,7 @@
   </div>
 
   <!-- UPLOAD -->
+
   <div class="panel active" id="tab-upload">
     <div class="upload-zone" id="dropZone">
       <div class="icon">📄</div>
@@ -181,6 +183,7 @@
   </div>
 
   <!-- YOUTUBE -->
+
   <div class="panel" id="tab-youtube">
     <div style="margin-bottom:16px;">
       <h3 style="font-size:16px;margin-bottom:6px;">▶️ Classificar vídeo do YouTube</h3>
@@ -219,9 +222,40 @@
         <button class="btn" onclick="resetYouTube()">▶️ Outro vídeo</button>
       </div>
     </div>
+
+```
+<!-- PLAYLIST IMPORT -->
+<div style="margin:32px 0 16px;border-top:1px solid var(--border);padding-top:32px;">
+  <h3 style="font-size:16px;margin-bottom:6px;">📋 Importar playlist completa</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+    Cole o link de uma playlist (Watch Later, Favoritos, etc) — todos os vídeos serão classificados automaticamente.
+  </p>
+</div>
+<div class="youtube-row">
+  <input type="text" id="playlistInput" placeholder="https://www.youtube.com/playlist?list=..."/>
+  <button class="btn primary" onclick="submitPlaylist()">📋 Importar</button>
+</div>
+<div class="spinner" id="spinnerPlaylist">
+  <div class="spinner-ring"></div>
+  <p style="color:var(--muted);font-size:13px;">Importando e classificando vídeos...</p>
+</div>
+<div class="result-card" id="resultCardPlaylist">
+  <div class="result-header">
+    <div class="emoji">📋</div>
+    <div><h3 id="resultTitlePlaylist">Playlist importada!</h3></div>
+  </div>
+  <div class="summary-box" id="resultSummaryPlaylist"></div>
+  <div class="action-row">
+    <button class="btn" onclick="resetPlaylist()">📋 Importar outra</button>
+    <button class="btn" onclick="switchTab('vault',document.querySelectorAll('.tab')[2])">🗄 Ver no Vault</button>
+  </div>
+</div>
+```
+
   </div>
 
   <!-- VAULT -->
+
   <div class="panel" id="tab-vault">
     <div class="filter-bar">
       <input type="text" id="vaultSearch" placeholder="Search vault…" oninput="loadVault()"/>
@@ -251,6 +285,7 @@
   </div>
 
   <!-- TAXONOMY -->
+
   <div class="panel" id="tab-taxonomy">
     <div class="pillars-grid" id="taxonomyGrid"></div>
   </div>
@@ -292,9 +327,9 @@
     try {
       const r = await fetch(`${API}/health`);
       const d = await r.json();
-      setStatus(`Backend online · ${d.items} items · OpenAI: ${d.openai ? "✅" : "⚠️ sem chave"}`, "ok");
+      setStatus(`Backend online · ${d.items} items · OpenAI: ${d.openai ? "✅" : "⚠️"}`, "ok");
     } catch (e) {
-      setStatus("Backend offline — verifique o Render.", "err");
+      setStatus("Backend offline", "err");
     }
   }
 
@@ -454,6 +489,48 @@
     currentItemIdYt = null;
   }
 
+  async function submitPlaylist() {
+    const url = document.getElementById("playlistInput").value.trim();
+    if (!url) return toast("Cole um link de playlist primeiro.");
+    document.getElementById("spinnerPlaylist").classList.add("visible");
+    document.getElementById("resultCardPlaylist").classList.remove("visible","success","error");
+    try {
+      const res = await fetch(`${API}/youtube/playlist`, {
+        method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      document.getElementById("spinnerPlaylist").classList.remove("visible");
+      if (!res.ok || data.error) throw new Error(data.error || "Erro desconhecido");
+      showPlaylistResult(data);
+    } catch (err) {
+      document.getElementById("spinnerPlaylist").classList.remove("visible");
+      const card = document.getElementById("resultCardPlaylist");
+      card.classList.add("visible","error");
+      document.getElementById("resultTitlePlaylist").textContent = "Erro";
+      document.getElementById("resultSummaryPlaylist").textContent = err.message;
+    }
+  }
+
+  function showPlaylistResult(data) {
+    const card = document.getElementById("resultCardPlaylist");
+    card.classList.add("visible","success");
+    document.getElementById("resultTitlePlaylist").textContent = `${data.imported} de ${data.total} vídeos importados!`;
+    document.getElementById("resultSummaryPlaylist").innerHTML = `
+      <div style="font-size:14px;margin-bottom:12px;">
+        ✅ <strong>${data.imported}</strong> vídeos classificados com sucesso<br>
+        ${data.total - data.imported > 0 ? `⚠️ <strong>${data.total - data.imported}</strong> falharam` : ''}
+      </div>
+      <p style="font-size:12px;color:var(--muted);">Vá para a aba Vault para ver todos os itens importados.</p>
+    `;
+    toast(`Playlist importada! ${data.imported} vídeos no Vault 🎉`);
+    loadVault();
+  }
+
+  function resetPlaylist() {
+    document.getElementById("playlistInput").value = "";
+    document.getElementById("resultCardPlaylist").classList.remove("visible","success","error");
+  }
+
   async function loadVault() {
     const search = document.getElementById("vaultSearch").value.toLowerCase();
     const pillar = document.getElementById("vaultPillar").value;
@@ -525,5 +602,6 @@
   checkHealth();
   renderTaxonomy();
 </script>
+
 </body>
 </html>
