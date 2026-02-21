@@ -1,289 +1,143 @@
 <!DOCTYPE html>
 
-<html lang="pt-BR">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Insight Vault v2.4</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Insight Vault</title>
   <style>
-    :root {
-      --bg: #0b1220;
-      --panel: #0f1a2e;
-      --text: #e9eefc;
-      --muted: #a9b4d0;
-      --accent: #7c5cff;
-      --accent2: #00d4b4;
-      --border: rgba(255,255,255,.08);
+    :root{
+      --bg:#0b1220; --panel:#0f1a2e; --panel2:#0b1628;
+      --text:#e9eefc; --muted:#a9b4d0;
+      --accent:#7c5cff; --accent2:#00d4b4; --danger:#ff6b6b;
+      --border:rgba(255,255,255,.08);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: radial-gradient(1200px 700px at 20% 10%, #1a2a52 0%, var(--bg) 60%);
-      color: var(--text);
-      min-height: 100vh;
-    }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 22px 60px; }
-    header { margin-bottom: 28px; }
-    header h1 { font-size: 36px; letter-spacing: -0.5px; margin-bottom: 4px; }
-    header h1 span { color: var(--accent); }
-    header p { color: var(--muted); font-size: 14px; }
+    *{box-sizing:border-box; margin:0; padding:0;}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:radial-gradient(1200px 700px at 20% 10%, #1a2a52 0%, var(--bg) 60%);
+      color:var(--text); min-height:100vh;}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 22px 60px;}
+    header{margin-bottom:28px;}
+    header h1{font-size:36px;letter-spacing:-.5px;margin-bottom:4px;}
+    header h1 span{color:var(--accent);}
+    header p{color:var(--muted);font-size:14px;}
+    .tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0;}
+    .tab{padding:10px 20px;cursor:pointer;font-size:13px;font-weight:600;
+      color:var(--muted);background:transparent;border:none;
+      border-bottom:3px solid transparent;transition:all .2s;border-radius:8px 8px 0 0;}
+    .tab:hover{color:var(--text);}
+    .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .panel{display:none;} .panel.active{display:block;}
+    .upload-zone{border:2px dashed var(--border);border-radius:20px;
+      padding:48px 28px;text-align:center;cursor:pointer;
+      transition:all .2s;background:rgba(15,26,46,.4);margin-bottom:20px;}
+    .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(124,92,255,.08);}
+    .upload-zone .icon{font-size:44px;margin-bottom:12px;}
+    .upload-zone h2{font-size:18px;margin-bottom:6px;}
+    .upload-zone p{color:var(--muted);font-size:13px;}
+    .upload-zone input[type=file]{display:none;}
+    .url-row{display:flex;gap:10px;margin-bottom:24px;}
+    .url-row input,.youtube-row input{flex:1;background:rgba(15,26,46,.65);border:1px solid var(--border);
+      color:var(--text);padding:12px 16px;border-radius:12px;font-size:14px;outline:none;}
+    .url-row input:focus,.youtube-row input:focus{border-color:var(--accent);}
+    .btn{cursor:pointer;border:1px solid var(--border);color:var(--text);
+      padding:11px 20px;border-radius:12px;font-size:13px;font-weight:600;
+      background:linear-gradient(180deg,rgba(124,92,255,.28),rgba(124,92,255,.12));
+      transition:all .2s;white-space:nowrap;}
+    .btn:hover{border-color:rgba(124,92,255,.5);background:rgba(124,92,255,.22);}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),#5b3fd4);border-color:var(--accent);}
+    .btn.success{background:linear-gradient(135deg,#00a884,#007a60);border-color:var(--accent2);}
+    .btn:disabled{opacity:.4;cursor:not-allowed;}
+    .result-card{background:rgba(15,26,46,.7);border:1px solid var(--border);
+      border-radius:18px;padding:24px;margin-bottom:20px;display:none;}
+    .result-card.visible{display:block;}
+    .result-card.success{border-color:rgba(0,212,180,.3);}
+    .result-card.error{border-color:rgba(255,107,107,.3);}
+    .result-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+    .result-header .emoji{font-size:28px;}
+    .result-header h3{font-size:16px;font-weight:700;}
+    .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+    @media(max-width:600px){.result-grid{grid-template-columns:1fr;}}
+    .result-field label{font-size:11px;color:var(--muted);text-transform:uppercase;
+      letter-spacing:1px;margin-bottom:4px;display:block;}
+    .result-field .val{font-size:14px;font-weight:600;}
+    .result-field .val.pill{display:inline-block;padding:4px 12px;border-radius:20px;
+      background:rgba(124,92,255,.15);border:1px solid rgba(124,92,255,.3);color:#b4a0ff;font-size:13px;}
+    .tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+    .tag{font-size:11px;padding:4px 10px;border-radius:20px;
+      background:rgba(0,212,180,.1);border:1px solid rgba(0,212,180,.2);color:var(--accent2);}
+    .summary-box{background:rgba(11,22,40,.5);border:1px solid var(--border);
+      border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.6;color:#dfe6ff;}
+    .rationale-box{font-size:12px;color:var(--muted);
+      border-left:2px solid var(--border);padding-left:12px;margin-bottom:16px;}
+    .confidence-bar{margin-bottom:16px;}
+    .confidence-bar label{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;}
+    .bar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+    .bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .6s;}
+    .action-row{display:flex;gap:10px;flex-wrap:wrap;}
+    .spinner{display:none;text-align:center;padding:40px;}
+    .spinner.visible{display:block;}
+    .spinner-ring{width:48px;height:48px;border:4px solid var(--border);
+      border-top-color:var(--accent);border-radius:50%;
+      animation:spin 1s linear infinite;margin:0 auto 12px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .filter-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+    .filter-bar select,.filter-bar input{background:rgba(15,26,46,.65);border:1px solid var(--border);
+      color:var(--text);padding:10px 14px;border-radius:10px;font-size:13px;outline:none;}
+    .filter-bar input{flex:1;min-width:200px;}
+    .vault-grid{display:flex;flex-direction:column;gap:10px;}
+    .vault-item{background:rgba(15,26,46,.55);border:1px solid var(--border);
+      border-radius:14px;padding:14px 16px;transition:border-color .2s;cursor:pointer;}
+    .vault-item:hover{border-color:rgba(124,92,255,.4);}
+    .vault-item-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;}
+    .vault-item-header h4{font-size:14px;font-weight:700;line-height:1.3;}
+    .vault-item-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+    .dot-classified{background:#00d4b4;} .dot-confirmed{background:#6c63ff;}
+    .dot-pending{background:#f7c948;} .dot-error{background:#ff6b6b;}
+    .vault-item-summary{font-size:12px;color:var(--muted);line-height:1.5;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .vault-pill{font-size:11px;padding:3px 9px;border-radius:20px;
+      background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.2);color:#b4a0ff;}
+    .empty-state{text-align:center;padding:48px;color:var(--muted);}
+    .empty-state .big{font-size:40px;margin-bottom:12px;}
+    .pillars-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+    .pillar-card{background:rgba(15,26,46,.55);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+    .pillar-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+    .pillar-head .num{font-size:11px;font-weight:700;background:rgba(124,92,255,.15);color:#b4a0ff;padding:2px 8px;border-radius:20px;}
+    .pillar-head h4{font-size:13px;font-weight:700;flex:1;}
+    .pillar-topics{padding:12px 16px;display:flex;flex-wrap:wrap;gap:6px;}
+    .topic-tag{font-size:11px;padding:3px 9px;border-radius:20px;
+      background:rgba(0,212,180,.08);border:1px solid rgba(0,212,180,.15);color:#6ee7d4;}
+    .status-bar{background:rgba(15,26,46,.5);border:1px solid var(--border);
+      border-radius:12px;padding:10px 16px;margin-bottom:20px;
+      font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+    .status-dot-sm{width:8px;height:8px;border-radius:50%;}
+    .dot-ok{background:#00d4b4;} .dot-err{background:#ff6b6b;} .dot-loading{background:#f7c948;}
+    #toast{position:fixed;bottom:24px;right:24px;background:#1e2038;border:1px solid var(--border);
+      border-radius:12px;padding:12px 18px;font-size:13px;
+      transform:translateY(80px);opacity:0;transition:all .3s;z-index:999;}
+    #toast.show{transform:translateY(0);opacity:1;}
+    .youtube-row{display:flex;gap:10px;margin-bottom:24px;}
 
 ```
-.status-bar {
-  background: rgba(15,26,46,.5);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 16px;
-  margin-bottom: 20px;
-  font-size: 12px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.status-dot { width: 8px; height: 8px; border-radius: 50%; }
-.dot-ok { background: #00d4b4; }
-.dot-err { background: #ff6b6b; }
-.dot-loading { background: #f7c948; }
-
-.tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
-}
-.tab {
-  padding: 10px 20px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  transition: all 0.2s;
-  border-radius: 8px 8px 0 0;
-}
-.tab:hover { color: var(--text); }
-.tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.panel { display: none; }
-.panel.active { display: block; }
-
-.btn {
-  cursor: pointer;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 11px 20px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  background: linear-gradient(180deg, rgba(124,92,255,.28), rgba(124,92,255,.12));
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.btn:hover {
-  border-color: rgba(124,92,255,.5);
-  background: rgba(124,92,255,.22);
-}
-.btn.primary {
-  background: linear-gradient(135deg, var(--accent), #5b3fd4);
-  border-color: var(--accent);
-}
-.btn.success {
-  background: linear-gradient(135deg, #00a884, #007a60);
-  border-color: var(--accent2);
-}
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.pillars-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-}
-.pillar-card {
-  background: rgba(15,26,46,.55);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-}
-.pillar-head {
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.pillar-head h4 {
-  font-size: 14px;
-  font-weight: 700;
-  flex: 1;
-}
-.pillar-num {
-  font-size: 11px;
-  font-weight: 700;
-  background: rgba(124,92,255,.15);
-  color: #b4a0ff;
-  padding: 3px 10px;
-  border-radius: 20px;
-}
-.pillar-topics {
-  padding: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.topic-tag {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(0,212,180,.08);
-  border: 1px solid rgba(0,212,180,.15);
-  color: #6ee7d4;
-  white-space: nowrap;
-}
-
-.vault-grid { display: flex; flex-direction: column; gap: 12px; }
-.vault-item {
-  background: rgba(15,26,46,.55);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-.vault-item:hover { border-color: rgba(124,92,255,.4); }
-.vault-item-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.vault-item h4 { font-size: 14px; font-weight: 700; }
-.vault-pill {
-  font-size: 11px;
-  padding: 3px 9px;
-  border-radius: 20px;
-  background: rgba(124,92,255,.12);
-  border: 1px solid rgba(124,92,255,.2);
-  color: #b4a0ff;
-}
-.status-dot-item {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 5px;
-}
-.dot-classified { background: #00d4b4; }
-.dot-confirmed { background: #6c63ff; }
-.edit-icon {
-  font-size: 16px;
-  padding: 6px;
-  border-radius: 6px;
-  background: rgba(124,92,255,.15);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.edit-icon:hover { background: rgba(124,92,255,.25); }
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-.modal-overlay.visible { display: flex; }
-.modal {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  max-width: 600px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 28px;
-}
-.modal h2 { font-size: 20px; margin-bottom: 20px; }
-.form-group { margin-bottom: 20px; }
-.form-group label {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-}
-.form-group select {
-  width: 100%;
-  background: rgba(15,26,46,.65);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 14px;
-  outline: none;
-}
-.form-group select:focus { border-color: var(--accent); }
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 24px;
-}
-
-.filter-bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.filter-bar select, .filter-bar input {
-  background: rgba(15,26,46,.65);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  outline: none;
-}
-.filter-bar input { flex: 1; min-width: 200px; }
-
-.empty-state {
-  text-align: center;
-  padding: 48px;
-  color: var(--muted);
-}
-.empty-state .big { font-size: 40px; margin-bottom: 12px; }
-
-#toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: #1e2038;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 18px;
-  font-size: 13px;
-  transform: translateY(80px);
-  opacity: 0;
-  transition: all 0.3s;
-  z-index: 999;
-}
-#toast.show {
-  transform: translateY(0);
-  opacity: 1;
-}
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.modal-overlay.visible{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:20px;
+  max-width:600px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;}
+.modal h2{font-size:20px;margin-bottom:20px;}
+.form-group{margin-bottom:20px;}
+.form-group label{display:block;font-size:12px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.form-group select{width:100%;background:rgba(15,26,46,.65);border:1px solid var(--border);
+  color:var(--text);padding:12px 16px;border-radius:12px;font-size:14px;outline:none;}
+.form-group select:focus{border-color:var(--accent);}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;}
+.edit-icon{font-size:14px;padding:4px 8px;border-radius:6px;
+  background:rgba(124,92,255,.15);cursor:pointer;transition:all .2s;}
+.edit-icon:hover{background:rgba(124,92,255,.25);}
 ```
 
   </style>
@@ -294,52 +148,166 @@
     <h1>📘 Insight <span>Vault</span></h1>
     <p>AI-native personal knowledge system — upload, classify, organize.</p>
   </header>
-
   <div id="statusBar" class="status-bar">
-    <div class="status-dot dot-loading"></div>
+    <div class="status-dot-sm dot-loading"></div>
     <span id="statusText">Connecting to backend…</span>
   </div>
-
   <div class="tabs">
-    <button class="tab" onclick="switchTab('upload',this)">⬆️ Upload</button>
+    <button class="tab active" onclick="switchTab('upload',this)">⬆️ Upload</button>
     <button class="tab" onclick="switchTab('youtube',this)">▶️ YouTube</button>
     <button class="tab" onclick="switchTab('vault',this)">🗄 Vault</button>
-    <button class="tab active" onclick="switchTab('taxonomy',this)">🗂 Taxonomy</button>
+    <button class="tab" onclick="switchTab('taxonomy',this)">🗂 Taxonomy</button>
   </div>
 
-  <div class="panel" id="tab-upload">
-    <p style="color:var(--muted);padding:20px;text-align:center;">Upload tab - Em desenvolvimento</p>
+  <!-- UPLOAD -->
+
+  <div class="panel active" id="tab-upload">
+    <div class="upload-zone" id="dropZone">
+      <div class="icon">📄</div>
+      <h2>Drop a file here or click to browse</h2>
+      <p>PDF · TXT · MD · PNG · JPG · WEBP — max 20 MB</p>
+      <input type="file" id="fileInput" accept=".pdf,.txt,.md,.png,.jpg,.jpeg,.webp"/>
+    </div>
+    <div class="spinner" id="spinner">
+      <div class="spinner-ring"></div>
+      <p style="color:var(--muted);font-size:13px;">AI is classifying your content…</p>
+    </div>
+    <div class="result-card" id="resultCard">
+      <div class="result-header">
+        <div class="emoji" id="resultEmoji">✅</div>
+        <div>
+          <h3 id="resultTitle">Classified!</h3>
+          <p id="resultFile" style="color:var(--muted);font-size:12px;"></p>
+        </div>
+        <div style="margin-left:auto;"><span id="resultStatus" class="tag"></span></div>
+      </div>
+      <div class="summary-box" id="resultSummary"></div>
+      <div class="tags-row" id="resultTags"></div>
+      <div class="result-grid">
+        <div class="result-field"><label>Pillar</label><div class="val pill" id="resultPillar">—</div></div>
+        <div class="result-field"><label>Topic</label><div class="val" id="resultTopic">—</div></div>
+      </div>
+      <div class="confidence-bar">
+        <label><span>AI Confidence</span><span id="resultConfidence">—</span></label>
+        <div class="bar-track"><div class="bar-fill" id="resultConfBar" style="width:0%"></div></div>
+      </div>
+      <div class="rationale-box" id="resultRationale"></div>
+      <div class="action-row">
+        <button class="btn success" id="confirmBtn" onclick="confirmClassification()">✅ Confirm</button>
+        <button class="btn" onclick="resetUpload()">⬆️ Upload Another</button>
+      </div>
+    </div>
   </div>
+
+  <!-- YOUTUBE -->
 
   <div class="panel" id="tab-youtube">
-    <p style="color:var(--muted);padding:20px;text-align:center;">YouTube tab - Em desenvolvimento</p>
+    <div style="margin-bottom:16px;">
+      <h3 style="font-size:16px;margin-bottom:6px;">▶️ Classificar vídeo do YouTube</h3>
+      <p style="font-size:13px;color:var(--muted);">Cole o link do vídeo — a IA extrai a transcrição e classifica automaticamente.</p>
+    </div>
+    <div class="youtube-row">
+      <input type="text" id="ytInput" placeholder="https://www.youtube.com/watch?v=..."/>
+      <button class="btn primary" onclick="submitYouTube()">▶️ Classificar</button>
+    </div>
+    <div class="spinner" id="spinnerYt">
+      <div class="spinner-ring"></div>
+      <p style="color:var(--muted);font-size:13px;">Buscando transcrição e classificando…</p>
+    </div>
+    <div class="result-card" id="resultCardYt">
+      <div class="result-header">
+        <div class="emoji">▶️</div>
+        <div>
+          <h3 id="resultTitleYt">Classificado!</h3>
+          <p id="resultFileYt" style="color:var(--muted);font-size:12px;"></p>
+        </div>
+        <div style="margin-left:auto;"><span id="resultStatusYt" class="tag"></span></div>
+      </div>
+      <div class="summary-box" id="resultSummaryYt"></div>
+      <div class="tags-row" id="resultTagsYt"></div>
+      <div class="result-grid">
+        <div class="result-field"><label>Pillar</label><div class="val pill" id="resultPillarYt">—</div></div>
+        <div class="result-field"><label>Topic</label><div class="val" id="resultTopicYt">—</div></div>
+      </div>
+      <div class="confidence-bar">
+        <label><span>AI Confidence</span><span id="resultConfidenceYt">—</span></label>
+        <div class="bar-track"><div class="bar-fill" id="resultConfBarYt" style="width:0%"></div></div>
+      </div>
+      <div class="rationale-box" id="resultRationaleYt"></div>
+      <div class="action-row">
+        <button class="btn success" id="confirmBtnYt" onclick="confirmClassificationYt()">✅ Confirm</button>
+        <button class="btn" onclick="resetYouTube()">▶️ Outro vídeo</button>
+      </div>
+    </div>
+
+```
+<div style="margin:32px 0 16px;border-top:1px solid var(--border);padding-top:32px;">
+  <h3 style="font-size:16px;margin-bottom:6px;">📋 Importar playlist completa</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+    Cole o link de uma playlist (Watch Later, Favoritos, etc) — todos os vídeos serão classificados automaticamente.
+  </p>
+</div>
+<div class="youtube-row">
+  <input type="text" id="playlistInput" placeholder="https://www.youtube.com/playlist?list=..."/>
+  <button class="btn primary" onclick="submitPlaylist()">📋 Importar</button>
+</div>
+<div class="spinner" id="spinnerPlaylist">
+  <div class="spinner-ring"></div>
+  <p style="color:var(--muted);font-size:13px;">Importando e classificando vídeos...</p>
+</div>
+<div class="result-card" id="resultCardPlaylist">
+  <div class="result-header">
+    <div class="emoji">📋</div>
+    <div><h3 id="resultTitlePlaylist">Playlist importada!</h3></div>
   </div>
+  <div class="summary-box" id="resultSummaryPlaylist"></div>
+  <div class="action-row">
+    <button class="btn" onclick="resetPlaylist()">📋 Importar outra</button>
+    <button class="btn" onclick="switchTab('vault',document.querySelectorAll('.tab')[2])">🗄 Ver no Vault</button>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- VAULT -->
 
   <div class="panel" id="tab-vault">
     <div class="filter-bar">
-      <input type="text" id="vaultSearch" placeholder="Buscar no vault..." oninput="loadVault()">
+      <input type="text" id="vaultSearch" placeholder="Search vault…" oninput="loadVault()"/>
       <select id="vaultPillar" onchange="loadVault()">
-        <option value="">Todos os Pilares</option>
+        <option value="">All Pillars</option>
+        <option value="P1">P1 – Personal Development</option>
+        <option value="P2">P2 – Health & Wellbeing</option>
+        <option value="P3">P3 – Attitude & Image</option>
+        <option value="P4">P4 – Relationships & Sales</option>
+        <option value="P5">P5 – Leadership & Strategy</option>
+        <option value="P6">P6 – Business & Wealth</option>
+        <option value="P7">P7 – Values & Integrity</option>
+        <option value="P8">P8 – Family & Legacy</option>
+      </select>
+      <select id="vaultStatus" onchange="loadVault()">
+        <option value="">All Status</option>
+        <option value="classified">Classified</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="pending">Pending</option>
+        <option value="error">Error</option>
       </select>
       <button class="btn" onclick="loadVault()">🔄 Refresh</button>
     </div>
     <div class="vault-grid" id="vaultGrid">
-      <div class="empty-state">
-        <div class="big">🗄</div>
-        <p>Carregando vault...</p>
-      </div>
+      <div class="empty-state"><div class="big">🗄</div><p>Upload content to start building your vault.</p></div>
     </div>
   </div>
 
-  <div class="panel active" id="tab-taxonomy">
-    <div class="pillars-grid" id="taxonomyGrid">
-      <div class="empty-state">
-        <div class="big">🗂</div>
-        <p>Carregando taxonomia...</p>
-      </div>
-    </div>
+  <!-- TAXONOMY -->
+
+  <div class="panel" id="tab-taxonomy">
+    <div class="pillars-grid" id="taxonomyGrid"></div>
   </div>
 </div>
+
+<!-- EDIT MODAL -->
 
 <div class="modal-overlay" id="editModal">
   <div class="modal">
@@ -356,7 +324,7 @@
     <div class="form-group">
       <label>Tópico</label>
       <select id="editTopic">
-        <option value="">Primeiro selecione um pilar</option>
+        <option value="">Selecione um tópico...</option>
       </select>
     </div>
     <div class="modal-actions">
@@ -369,264 +337,381 @@
 <div id="toast"></div>
 
 <script>
-const API = "https://insight-vault-58jj.onrender.com";
-let PILLARS = [];
-let currentEditItem = null;
+  const API = "https://insight-vault-58jj.onrender.com";
+  let currentItemId = null;
+  let currentItemIdYt = null;
+  let currentEditItem = null;
+  let PILLARS = [];
 
-const FULL_TAXONOMY = [
-  {
-    id: "P1",
-    name_pt: "Desenvolvimento Pessoal & Eficácia",
-    name_en: "Personal Development & Effectiveness",
-    topics: ["Desenvolvimento","Desenvolvimento pessoal","Melhoria contínua","Lifelong learning","Aprendizagem","Conhecimento","Proatividade","Eficácia","Eficiência","Gestão de tempo","Time management","Disciplina","Hábitos","Excelência","Organização","Foco","Deep work","Resiliência","Grit","Persistência","Perseverança","Consistência","Mentalidade de crescimento","Growth Mindset","Crescimento","Performance","Pensamento crítico","Método científico"]
-  },
-  {
-    id: "P2",
-    name_pt: "Saúde, Bem-estar e Espiritualidade",
-    name_en: "Health, Wellbeing & Spirituality",
-    topics: ["Equilíbrio","Saúde física","Ginástica e treinos","Nutrição & suplementação","Sono","Saúde mental","Terapia","Inteligência Emocional","Autoconhecimento","Lazer","Hobbies","Bem-estar","Espiritualidade & religião","Gestão de estresse","Energia","Vitalidade","Longevidade","Conexão","Meditação","Paz interior","Escuta do coração","Transcendência","Consciência","Propósito","Sentido","Felicidade","Happiness","Gratidão","Humanidade","Otimismo","Vulnerabilidade","Sabedoria","Realização"]
-  },
-  {
-    id: "P3",
-    name_pt: "Atitude e Imagem",
-    name_en: "Attitude & Image",
-    topics: ["Atitude","Postura","Postura profissional","Imagem","Imagem pública","Mídias sociais","Reputação","Vestuário","Marca pessoal","Identidade","Autenticidade","Inovação","Flexibilidade","Criatividade"]
-  },
-  {
-    id: "P4",
-    name_pt: "Relacionamentos, Comunicação e Vendas",
-    name_en: "Relationships, Communication & Sales",
-    topics: ["Relacionamentos","Amizades","Comunidades","Networking","Comunicação","Comunicação não violenta","Escuta","Escuta ativa","Empatia","Rapport","Oratória","Influência","Persuasão","Negociação","Resolução de conflitos","Vendas","Storytelling"]
-  },
-  {
-    id: "P5",
-    name_pt: "Liderança, Estratégia & Cultura",
-    name_en: "Leadership, Strategy & Culture",
-    topics: ["Liderança","Gestão de pessoas","Gestão de projetos","Scrum","Trabalho em equipe","Delegação","Cultura","Cultura de Excelência","Missão, Visão e Valores Organizacionais","Estratégia","Estratégia empresarial","Governança","Sistemas organizacionais","Decisão","Decision making"]
-  },
-  {
-    id: "P6",
-    name_pt: "Business, Money & Wealth",
-    name_en: "Business, Money & Wealth",
-    topics: ["Finanças","Dinheiro","Patrimônio","Ativos","Gestão financeira","Alocação de capital","Investimentos","Avaliação de risco","Empreendedorismo"]
-  },
-  {
-    id: "P7",
-    name_pt: "Valores, Caráter e Integridade",
-    name_en: "Values, Character & Integrity",
-    topics: ["Ética","Justiça","Moral","Responsabilidade","Seriedade","Compromisso","Honra","Integridade","Coragem","Coragem Moral","Caráter","Virtude","Compaixão","Humildade","Liberdade","Princípios","Valores","Serviço"]
-  },
-  {
-    id: "P8",
-    name_pt: "Família & Legado",
-    name_en: "Family & Legacy",
-    topics: ["Família","Legado","Nome","Reputação","Paternidade","Presença emocional","Tradições familiares","Modelo de vida","Educação moral","Experiências","Cartas e orientações"]
+  function switchTab(id, btn) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("tab-" + id).classList.add("active");
+    btn.classList.add("active");
+    if (id === "vault") loadVault();
+    if (id === "taxonomy") renderTaxonomy();
   }
-];
 
-function switchTab(id, btn) {
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.getElementById("tab-" + id).classList.add("active");
-  btn.classList.add("active");
-  if (id === "vault") loadVault();
-  if (id === "taxonomy") renderTaxonomy();
-}
-
-function toast(msg, duration = 3000) {
-  const el = document.getElementById("toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), duration);
-}
-
-function setStatus(msg, type = "ok") {
-  const bar = document.getElementById("statusBar");
-  const dot = bar.querySelector(".status-dot");
-  const txt = document.getElementById("statusText");
-  dot.className = "status-dot";
-  dot.classList.add(type === "ok" ? "dot-ok" : type === "err" ? "dot-err" : "dot-loading");
-  txt.textContent = msg;
-}
-
-async function checkHealth() {
-  try {
-    const r = await fetch(`${API}/health`);
-    const d = await r.json();
-    setStatus(`Backend online · ${d.items} items · v${d.version}`, "ok");
-  } catch (e) {
-    setStatus("Backend offline", "err");
+  function toast(msg, duration = 3000) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), duration);
   }
-}
 
-async function loadPillars() {
-  try {
-    const r = await fetch(`${API}/pillars`);
-    PILLARS = await r.json();
-    populatePillarDropdowns();
-  } catch (e) {
-    console.error("Failed to load pillars:", e);
-    PILLARS = FULL_TAXONOMY;
-    populatePillarDropdowns();
+  function setStatus(msg, type = "ok") {
+    const bar = document.getElementById("statusBar");
+    const dot = bar.querySelector(".status-dot-sm");
+    const txt = document.getElementById("statusText");
+    dot.className = "status-dot-sm";
+    dot.classList.add(type === "ok" ? "dot-ok" : type === "err" ? "dot-err" : "dot-loading");
+    txt.textContent = msg;
   }
-}
 
-function populatePillarDropdowns() {
-  const select = document.getElementById("editPillar");
-  const vaultSelect = document.getElementById("vaultPillar");
-  
-  select.innerHTML = '<option value="">Selecione um pilar...</option>';
-  vaultSelect.innerHTML = '<option value="">Todos os Pilares</option>';
-  
-  PILLARS.forEach(p => {
-    const opt1 = document.createElement("option");
-    opt1.value = p.id;
-    opt1.textContent = `${p.id} – ${p.name_pt}`;
-    select.appendChild(opt1);
-    
-    const opt2 = document.createElement("option");
-    opt2.value = p.id;
-    opt2.textContent = `${p.id} – ${p.name_pt}`;
-    vaultSelect.appendChild(opt2);
-  });
-}
-
-function updateTopicsDropdown() {
-  const pillarId = document.getElementById("editPillar").value;
-  const topicSelect = document.getElementById("editTopic");
-  topicSelect.innerHTML = '<option value="">Selecione um tópico...</option>';
-  
-  if (!pillarId) return;
-  
-  const pillar = PILLARS.find(p => p.id === pillarId);
-  if (!pillar) return;
-  
-  pillar.topics.forEach(topic => {
-    const opt = document.createElement("option");
-    opt.value = topic;
-    opt.textContent = topic;
-    topicSelect.appendChild(opt);
-  });
-}
-
-function openEditModal(item) {
-  currentEditItem = item;
-  document.getElementById("editItemName").textContent = item.original || item.filename;
-  document.getElementById("editPillar").value = item.pillar_id || "";
-  updateTopicsDropdown();
-  document.getElementById("editTopic").value = item.topic_name || "";
-  document.getElementById("editModal").classList.add("visible");
-}
-
-function closeEditModal() {
-  document.getElementById("editModal").classList.remove("visible");
-  currentEditItem = null;
-}
-
-async function saveReclassify() {
-  const pillar_id = document.getElementById("editPillar").value;
-  const topic_name = document.getElementById("editTopic").value;
-  
-  if (!pillar_id || !topic_name) {
-    return toast("Selecione pilar e tópico");
-  }
-  
-  try {
-    const res = await fetch(`${API}/items/${currentEditItem.id}/reclassify`, {
-      method: "PATCH",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ pillar_id, topic_name })
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast("Item reclassificado com sucesso! ✅");
-      closeEditModal();
-      loadVault();
-    } else {
-      toast("Erro ao reclassificar: " + (data.error || "desconhecido"));
+  async function checkHealth() {
+    try {
+      const r = await fetch(`${API}/health`);
+      const d = await r.json();
+      setStatus(`Backend online · ${d.items} items · OpenAI: ${d.openai ? "✅" : "⚠️"}`, "ok");
+    } catch (e) {
+      setStatus("Backend offline", "err");
     }
-  } catch (e) {
-    toast("Erro: " + e.message);
   }
-}
 
-async function loadVault() {
-  const search = document.getElementById("vaultSearch").value.toLowerCase();
-  const pillar = document.getElementById("vaultPillar").value;
-  let url = `${API}/vault?limit=100`;
-  if (pillar) url += `&pillar=${pillar}`;
-  
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    let items = data.items || [];
+  async function loadPillars() {
+    try {
+      const r = await fetch(`${API}/pillars`);
+      PILLARS = await r.json();
+      populatePillarDropdown();
+    } catch (e) {
+      console.error("Failed to load pillars:", e);
+    }
+  }
+
+  function populatePillarDropdown() {
+    const select = document.getElementById("editPillar");
+    select.innerHTML = '<option value="">Selecione um pilar...</option>';
+    PILLARS.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = `${p.id} – ${p.name_pt}`;
+      select.appendChild(opt);
+    });
+  }
+
+  function updateTopicsDropdown() {
+    const pillarId = document.getElementById("editPillar").value;
+    const topicSelect = document.getElementById("editTopic");
+    topicSelect.innerHTML = '<option value="">Selecione um tópico...</option>';
     
-    if (search) {
-      items = items.filter(i =>
+    if (!pillarId) return;
+    
+    const pillar = PILLARS.find(p => p.id === pillarId);
+    if (!pillar) return;
+    
+    pillar.topics.forEach(topic => {
+      const opt = document.createElement("option");
+      opt.value = topic;
+      opt.textContent = topic;
+      topicSelect.appendChild(opt);
+    });
+  }
+
+  function openEditModal(item) {
+    currentEditItem = item;
+    document.getElementById("editItemName").textContent = item.original || item.filename;
+    document.getElementById("editPillar").value = item.pillar_id || "";
+    updateTopicsDropdown();
+    document.getElementById("editTopic").value = item.topic_name || "";
+    document.getElementById("editModal").classList.add("visible");
+  }
+
+  function closeEditModal() {
+    document.getElementById("editModal").classList.remove("visible");
+    currentEditItem = null;
+  }
+
+  async function saveReclassify() {
+    const pillar_id = document.getElementById("editPillar").value;
+    const topic_name = document.getElementById("editTopic").value;
+    
+    if (!pillar_id || !topic_name) {
+      return toast("Selecione pilar e tópico");
+    }
+    
+    try {
+      const res = await fetch(`${API}/items/${currentEditItem.id}/reclassify`, {
+        method: "PATCH",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ pillar_id, topic_name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("Item reclassificado! ✅");
+        closeEditModal();
+        loadVault();
+      }
+    } catch (e) {
+      toast("Erro: " + e.message);
+    }
+  }
+
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault(); dropZone.classList.remove("dragover");
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+  async function handleFile(file) {
+    dropZone.style.display = "none";
+    document.getElementById("spinner").classList.add("visible");
+    document.getElementById("resultCard").classList.remove("visible","success","error");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
+      const data = await res.json();
+      document.getElementById("spinner").classList.remove("visible");
+      if (!res.ok || data.error) throw new Error(data.error || data.detail || "Unknown error");
+      showResult(data.item, file.name);
+    } catch (err) {
+      document.getElementById("spinner").classList.remove("visible");
+      showError(err.message, file.name);
+    }
+  }
+
+  function showResult(item, filename) {
+    currentItemId = item.id;
+    const card = document.getElementById("resultCard");
+    card.classList.add("visible","success");
+    document.getElementById("resultEmoji").textContent = "✅";
+    document.getElementById("resultTitle").textContent = "Classified by AI!";
+    document.getElementById("resultFile").textContent = filename || item.original;
+    document.getElementById("resultStatus").textContent = item.status;
+    document.getElementById("resultSummary").textContent = item.summary || "No summary.";
+    document.getElementById("resultPillar").textContent = `${item.pillar_id} – ${item.pillar_name}`;
+    document.getElementById("resultTopic").textContent = item.topic_name || "—";
+    document.getElementById("resultRationale").textContent = item.rationale || "";
+    const pct = Math.round((item.confidence || 0) * 100);
+    document.getElementById("resultConfidence").textContent = pct + "%";
+    document.getElementById("resultConfBar").style.width = pct + "%";
+    const tagsRow = document.getElementById("resultTags");
+    tagsRow.innerHTML = "";
+    (item.tags || []).forEach(t => {
+      const span = document.createElement("span");
+      span.className = "tag"; span.textContent = t; tagsRow.appendChild(span);
+    });
+    checkHealth();
+  }
+
+  function showError(msg, filename) {
+    const card = document.getElementById("resultCard");
+    card.classList.add("visible","error");
+    document.getElementById("resultEmoji").textContent = "❌";
+    document.getElementById("resultTitle").textContent = "Classification failed";
+    document.getElementById("resultFile").textContent = filename;
+    document.getElementById("resultSummary").textContent = msg;
+    document.getElementById("resultTags").innerHTML = "";
+    document.getElementById("resultPillar").textContent = "—";
+    document.getElementById("resultTopic").textContent = "—";
+    document.getElementById("resultRationale").textContent = "";
+    document.getElementById("resultConfidence").textContent = "—";
+    document.getElementById("resultConfBar").style.width = "0%";
+  }
+
+  async function confirmClassification() {
+    if (!currentItemId) return;
+    try {
+      const res = await fetch(`${API}/items/${currentItemId}/confirm`, {
+        method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById("resultStatus").textContent = "confirmed";
+        document.getElementById("confirmBtn").textContent = "✅ Confirmed!";
+        document.getElementById("confirmBtn").disabled = true;
+        toast("Saved to vault! 🎉");
+      }
+    } catch (e) { toast("Error: " + e.message); }
+  }
+
+  function resetUpload() {
+    dropZone.style.display = "";
+    document.getElementById("resultCard").classList.remove("visible","success","error");
+    fileInput.value = ""; currentItemId = null;
+  }
+
+  async function submitYouTube() {
+    const url = document.getElementById("ytInput").value.trim();
+    if (!url) return toast("Cole um link do YouTube primeiro.");
+    document.getElementById("spinnerYt").classList.add("visible");
+    document.getElementById("resultCardYt").classList.remove("visible","success","error");
+    try {
+      const res = await fetch(`${API}/youtube`, {
+        method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      document.getElementById("spinnerYt").classList.remove("visible");
+      if (!res.ok || data.error) throw new Error(data.error || "Erro desconhecido");
+      showResultYt(data.item, url);
+    } catch (err) {
+      document.getElementById("spinnerYt").classList.remove("visible");
+      const card = document.getElementById("resultCardYt");
+      card.classList.add("visible","error");
+      document.getElementById("resultTitleYt").textContent = "Erro";
+      document.getElementById("resultSummaryYt").textContent = err.message;
+    }
+  }
+
+  function showResultYt(item, url) {
+    currentItemIdYt = item.id;
+    const card = document.getElementById("resultCardYt");
+    card.classList.add("visible","success");
+    document.getElementById("resultTitleYt").textContent = "Vídeo classificado!";
+    document.getElementById("resultFileYt").textContent = url;
+    document.getElementById("resultStatusYt").textContent = item.status;
+    document.getElementById("resultSummaryYt").textContent = item.summary || "Sem resumo.";
+    document.getElementById("resultPillarYt").textContent = `${item.pillar_id} – ${item.pillar_name}`;
+    document.getElementById("resultTopicYt").textContent = item.topic_name || "—";
+    document.getElementById("resultRationaleYt").textContent = item.rationale || "";
+    const pct = Math.round((item.confidence || 0) * 100);
+    document.getElementById("resultConfidenceYt").textContent = pct + "%";
+    document.getElementById("resultConfBarYt").style.width = pct + "%";
+    const tagsRow = document.getElementById("resultTagsYt");
+    tagsRow.innerHTML = "";
+    (item.tags || []).forEach(t => {
+      const span = document.createElement("span");
+      span.className = "tag"; span.textContent = t; tagsRow.appendChild(span);
+    });
+  }
+
+  async function confirmClassificationYt() {
+    if (!currentItemIdYt) return;
+    try {
+      const res = await fetch(`${API}/items/${currentItemIdYt}/confirm`, {
+        method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById("resultStatusYt").textContent = "confirmed";
+        document.getElementById("confirmBtnYt").textContent = "✅ Confirmed!";
+        document.getElementById("confirmBtnYt").disabled = true;
+        toast("Salvo no Vault! 🎉");
+      }
+    } catch (e) { toast("Erro: " + e.message); }
+  }
+
+  function resetYouTube() {
+    document.getElementById("ytInput").value = "";
+    document.getElementById("resultCardYt").classList.remove("visible","success","error");
+    currentItemIdYt = null;
+  }
+
+  async function submitPlaylist() {
+    const url = document.getElementById("playlistInput").value.trim();
+    if (!url) return toast("Cole um link de playlist primeiro.");
+    document.getElementById("spinnerPlaylist").classList.add("visible");
+    document.getElementById("resultCardPlaylist").classList.remove("visible","success","error");
+    try {
+      const res = await fetch(`${API}/youtube/playlist`, {
+        method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      document.getElementById("spinnerPlaylist").classList.remove("visible");
+      if (!res.ok || data.error) throw new Error(data.error || "Erro desconhecido");
+      showPlaylistResult(data);
+    } catch (err) {
+      document.getElementById("spinnerPlaylist").classList.remove("visible");
+      const card = document.getElementById("resultCardPlaylist");
+      card.classList.add("visible","error");
+      document.getElementById("resultTitlePlaylist").textContent = "Erro";
+      document.getElementById("resultSummaryPlaylist").textContent = err.message;
+    }
+  }
+
+  function showPlaylistResult(data) {
+    const card = document.getElementById("resultCardPlaylist");
+    card.classList.add("visible","success");
+    document.getElementById("resultTitlePlaylist").textContent = `${data.imported} de ${data.total} vídeos importados!`;
+    document.getElementById("resultSummaryPlaylist").innerHTML = `
+      <div style="font-size:14px;margin-bottom:12px;">
+        ✅ <strong>${data.imported}</strong> vídeos classificados com sucesso<br>
+        ${data.total - data.imported > 0 ? `⚠️ <strong>${data.total - data.imported}</strong> falharam` : ''}
+      </div>
+      <p style="font-size:12px;color:var(--muted);">Vá para a aba Vault para ver todos os itens importados.</p>
+    `;
+    toast(`Playlist importada! ${data.imported} vídeos no Vault 🎉`);
+    loadVault();
+  }
+
+  function resetPlaylist() {
+    document.getElementById("playlistInput").value = "";
+    document.getElementById("resultCardPlaylist").classList.remove("visible","success","error");
+  }
+
+  async function loadVault() {
+    const search = document.getElementById("vaultSearch").value.toLowerCase();
+    const pillar = document.getElementById("vaultPillar").value;
+    const status = document.getElementById("vaultStatus").value;
+    let url = `${API}/vault?limit=100`;
+    if (pillar) url += `&pillar=${pillar}`;
+    if (status) url += `&status=${status}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      let items = data.items || [];
+      if (search) items = items.filter(i =>
         (i.original||"").toLowerCase().includes(search) ||
         (i.summary||"").toLowerCase().includes(search) ||
-        (i.pillar_name||"").toLowerCase().includes(search) ||
-        (i.topic_name||"").toLowerCase().includes(search)
+        (i.pillar_name||"").toLowerCase().includes(search)
       );
-    }
-    
-    const grid = document.getElementById("vaultGrid");
-    
-    if (!items.length) {
-      grid.innerHTML = `<div class="empty-state"><div class="big">🗄</div><p>Nenhum item encontrado. Faça upload de conteúdo!</p></div>`;
-      return;
-    }
-    
-    grid.innerHTML = items.map(item => `
-      <div class="vault-item" onclick='openEditModal(${JSON.stringify(item).replace(/'/g, "\\'")}); event.stopPropagation();'>
-        <div class="vault-item-header">
-          <div style="display:flex;align-items:flex-start;gap:8px;flex:1;">
-            <div class="status-dot-item dot-${item.status}"></div>
-            <div>
-              <h4>${item.original || item.filename}</h4>
-              <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-                <span class="vault-pill">${item.pillar_id||"?"} – ${item.pillar_name||"Sem classificação"}</span>
-                ${item.topic_name ? `<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4;">${item.topic_name}</span>` : ""}
+      const grid = document.getElementById("vaultGrid");
+      if (!items.length) {
+        grid.innerHTML = `<div class="empty-state"><div class="big">🗄</div><p>Nenhum item. Faça um upload!</p></div>`;
+        return;
+      }
+      grid.innerHTML = items.map(item => `
+        <div class="vault-item" onclick='openEditModal(${JSON.stringify(item).replace(/'/g, "\\'")}); event.stopPropagation();'>
+          <div class="vault-item-header">
+            <div style="display:flex;align-items:flex-start;gap:8px;flex:1;">
+              <div class="status-dot dot-${item.status}" style="margin-top:5px;"></div>
+              <div>
+                <h4>${item.original || item.filename}</h4>
+                <div class="vault-item-meta" style="margin-top:4px;">
+                  <span class="vault-pill">${item.pillar_id||"?"} – ${item.pillar_name||"Unclassified"}</span>
+                  ${item.topic_name?`<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4;">${item.topic_name}</span>`:""}
+                </div>
               </div>
             </div>
+            <span class="edit-icon" title="Editar classificação">✏️</span>
           </div>
-          <span class="edit-icon" title="Editar classificação">✏️</span>
+          <div class="vault-item-summary">${item.summary||"Sem resumo."}</div>
+          ${item.tags?.length?`<div class="tags-row" style="margin-top:8px;">${item.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>`:""}
+        </div>`).join("");
+    } catch (e) {
+      document.getElementById("vaultGrid").innerHTML =
+        `<div class="empty-state"><p style="color:var(--danger);">Erro: ${e.message}</p></div>`;
+    }
+  }
+
+  function renderTaxonomy() {
+    document.getElementById("taxonomyGrid").innerHTML = PILLARS.map(p => `
+      <div class="pillar-card">
+        <div class="pillar-head">
+          <h4>${p.name_pt}</h4>
+          <span class="num">${p.id}</span>
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:8px;">${item.summary || "Sem resumo disponível."}</div>
-      </div>
-    `).join("");
-    
-  } catch (e) {
-    document.getElementById("vaultGrid").innerHTML =
-      `<div class="empty-state"><p style="color:#ff6b6b;">Erro ao carregar: ${e.message}</p></div>`;
+        <div class="pillar-topics">${p.topics.map(t=>`<span class="topic-tag">${t}</span>`).join("")}</div>
+      </div>`).join("");
   }
-}
 
-function renderTaxonomy() {
-  const grid = document.getElementById("taxonomyGrid");
-  
-  if (!PILLARS.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="big">⏳</div><p>Carregando taxonomia...</p></div>`;
-    return;
-  }
-  
-  grid.innerHTML = PILLARS.map(p => `
-    <div class="pillar-card">
-      <div class="pillar-head">
-        <h4>${p.name_pt}<br><small style="font-size:11px;color:var(--muted);font-weight:400;">${p.name_en}</small></h4>
-        <span class="pillar-num">${p.id}</span>
-      </div>
-      <div class="pillar-topics">
-        ${p.topics.map(t => `<span class="topic-tag">${t}</span>`).join("")}
-      </div>
-    </div>
-  `).join("");
-}
-
-checkHealth();
-loadPillars().then(() => {
-  renderTaxonomy();
-});
+  checkHealth();
+  loadPillars();
 </script>
 
 </body>
