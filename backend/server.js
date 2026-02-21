@@ -1,4 +1,4 @@
-// backend/server.js — Insight Vault v2.4 — Full Taxonomy
+// backend/server.js — Insight Vault v2.4 — Full Taxonomy (better-sqlite3)
 require(“dotenv”).config();
 const express  = require(“express”);
 const cors     = require(“cors”);
@@ -6,9 +6,9 @@ const multer   = require(“multer”);
 const path     = require(“path”);
 const fs       = require(“fs”);
 const { v4: uuidv4 } = require(“uuid”);
+const Database = require(“better-sqlite3”);
 const OpenAI   = require(“openai”);
 const { google } = require(“googleapis”);
-const initSqlJs = require(“sql.js”);
 const pdfParse  = require(“pdf-parse”);
 
 const app = express();
@@ -18,53 +18,9 @@ app.use(cors());
 const UPLOAD_DIR = path.join(__dirname, “uploads”);
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const DB_PATH = path.join(__dirname, “vault.db”);
-let db;
+const db = new Database(path.join(__dirname, “vault.db”));
 
-async function initDB() {
-const SQL = await initSqlJs();
-if (fs.existsSync(DB_PATH)) {
-const fileBuffer = fs.readFileSync(DB_PATH);
-db = new SQL.Database(fileBuffer);
-} else {
-db = new SQL.Database();
-}
-db.run(`CREATE TABLE IF NOT EXISTS items ( id TEXT PRIMARY KEY, filename TEXT, original TEXT, mimetype TEXT, size INTEGER, text TEXT, summary TEXT, tags TEXT, pillar_id TEXT, pillar_name TEXT, topic_id TEXT, topic_name TEXT, confidence REAL, rationale TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')) );`);
-db.run(`CREATE TABLE IF NOT EXISTS classification_log ( id TEXT PRIMARY KEY, item_id TEXT, prompt TEXT, response TEXT, model TEXT, tokens INTEGER, created_at TEXT DEFAULT (datetime('now')) );`);
-saveDB();
-console.log(“Database ready.”);
-}
-
-function saveDB() {
-const data = db.export();
-fs.writeFileSync(DB_PATH, Buffer.from(data));
-}
-
-function dbRun(sql, params = []) {
-db.run(sql, params);
-saveDB();
-}
-
-function dbGet(sql, params = []) {
-const stmt = db.prepare(sql);
-stmt.bind(params);
-if (stmt.step()) {
-const row = stmt.getAsObject();
-stmt.free();
-return row;
-}
-stmt.free();
-return null;
-}
-
-function dbAll(sql, params = []) {
-const stmt = db.prepare(sql);
-stmt.bind(params);
-const rows = [];
-while (stmt.step()) rows.push(stmt.getAsObject());
-stmt.free();
-return rows;
-}
+db.exec(`CREATE TABLE IF NOT EXISTS items ( id TEXT PRIMARY KEY, filename TEXT, original TEXT, mimetype TEXT, size INTEGER, text TEXT, summary TEXT, tags TEXT, pillar_id TEXT, pillar_name TEXT, topic_id TEXT, topic_name TEXT, confidence REAL, rationale TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')) ); CREATE TABLE IF NOT EXISTS classification_log ( id TEXT PRIMARY KEY, item_id TEXT, prompt TEXT, response TEXT, model TEXT, tokens INTEGER, created_at TEXT DEFAULT (datetime('now')) );`);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const youtube = google.youtube({ version: “v3”, auth: process.env.YOUTUBE_API_KEY });
@@ -307,9 +263,9 @@ return { …row, tags: row.tags ? JSON.parse(row.tags) : [] };
 // ══════════════════════════════════════════
 
 app.get(”/health”, (_, res) => {
-const row = dbGet(“SELECT COUNT(*) as n FROM items”);
+const result = db.prepare(“SELECT COUNT(*) as n FROM items”).get();
 res.json({
-status: “ok”, version: “2.4.0”, items: row ? row.n : 0,
+status: “ok”, version: “2.4.0”, items: result.n,
 openai: !!process.env.OPENAI_API_KEY,
 youtube: !!process.env.YOUTUBE_API_KEY,
 timestamp: new Date().toISOString(),
@@ -330,7 +286,7 @@ res.json(topics);
 app.get(”/items”, (req, res) => {
 const topic = (req.query.topic || “”).trim();
 if (!topic) return res.status(400).json({ error: “Missing ?topic=T1” });
-const rows = dbAll(“SELECT * FROM items WHERE topic_id = ? ORDER BY created_at DESC”, [topic]);
+const rows = db.prepare(“SELECT * FROM items WHERE topic_id = ? ORDER BY created_at DESC”).all(topic);
 res.json(rows.map(parseItem));
 });
 
@@ -339,23 +295,23 @@ if (!req.file) return res.status(400).json({ error: “No file received.” });
 const id = uuidv4();
 const { filename, originalname, mimetype, size, path: filePath } = req.file;
 const text = await extractText(filePath, originalname);
-dbRun(`INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying')`,
-[id, filename, originalname, mimetype, size, text]);
+db.prepare(`INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying')`)
+.run(id, filename, originalname, mimetype, size, text);
 if (!process.env.OPENAI_API_KEY) {
-dbRun(“UPDATE items SET status=‘needs_api_key’ WHERE id=?”, [id]);
+db.prepare(“UPDATE items SET status=‘needs_api_key’ WHERE id=?”).run(id);
 return res.status(202).json({ id, status: “needs_api_key”, message: “Set OPENAI_API_KEY to enable classification.” });
 }
 try {
 const { result, logData } = await classifyWithAI(text, originalname);
-dbRun(`UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=?`,
-[result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id]);
-dbRun(`INSERT INTO classification_log (id, item_id, prompt, response, model, tokens) VALUES (?, ?, ?, ?, ?, ?)`,
-[uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens]);
-const item = dbGet(“SELECT * FROM items WHERE id=?”, [id]);
+db.prepare(`UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=?`)
+.run(result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id);
+db.prepare(`INSERT INTO classification_log (id, item_id, prompt, response, model, tokens) VALUES (?, ?, ?, ?, ?, ?)`)
+.run(uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens);
+const item = db.prepare(“SELECT * FROM items WHERE id=?”).get(id);
 res.json({ success: true, item: parseItem(item) });
 } catch (err) {
 console.error(“Upload error:”, err.message);
-dbRun(“UPDATE items SET status=‘error’, rationale=? WHERE id=?”, [err.message, id]);
+db.prepare(“UPDATE items SET status=‘error’, rationale=? WHERE id=?”).run(err.message, id);
 res.status(500).json({ error: “AI classification failed.”, detail: err.message, id });
 }
 });
@@ -369,18 +325,18 @@ if (!process.env.YOUTUBE_API_KEY) return res.status(400).json({ error: “YOUTUB
 try {
 const text = await getYouTubeCaptions(videoId);
 const id = uuidv4();
-dbRun(`INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying')`,
-[id, `yt_${videoId}`, url, “video/youtube”, text.length, text]);
+db.prepare(`INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying')`)
+.run(id, `yt_${videoId}`, url, “video/youtube”, text.length, text);
 if (!process.env.OPENAI_API_KEY) {
-dbRun(“UPDATE items SET status=‘needs_api_key’ WHERE id=?”, [id]);
+db.prepare(“UPDATE items SET status=‘needs_api_key’ WHERE id=?”).run(id);
 return res.status(202).json({ id, status: “needs_api_key” });
 }
 const { result, logData } = await classifyWithAI(text, `YouTube: ${url}`);
-dbRun(`UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=?`,
-[result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id]);
-dbRun(`INSERT INTO classification_log (id, item_id, prompt, response, model, tokens) VALUES (?, ?, ?, ?, ?, ?)`,
-[uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens]);
-const item = dbGet(“SELECT * FROM items WHERE id=?”, [id]);
+db.prepare(`UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=?`)
+.run(result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id);
+db.prepare(`INSERT INTO classification_log (id, item_id, prompt, response, model, tokens) VALUES (?, ?, ?, ?, ?, ?)`)
+.run(uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens);
+const item = db.prepare(“SELECT * FROM items WHERE id=?”).get(id);
 res.json({ success: true, item: parseItem(item) });
 } catch (err) {
 console.error(“YouTube error:”, err.message);
@@ -402,17 +358,17 @@ const results = [];
 for (const video of videos) {
 const text = `Title: ${video.title}\n\nDescription: ${video.description}`;
 const id = uuidv4();
-dbRun(`INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying')`,
-[id, `yt_${video.videoId}`, video.url, “video/youtube”, text.length, text]);
+db.prepare(`INSERT INTO items (id, filename, original, mimetype, size, text, status) VALUES (?, ?, ?, ?, ?, ?, 'classifying')`)
+.run(id, `yt_${video.videoId}`, video.url, “video/youtube”, text.length, text);
 try {
 const { result, logData } = await classifyWithAI(text, video.title);
-dbRun(`UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=?`,
-[result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id]);
-dbRun(`INSERT INTO classification_log (id, item_id, prompt, response, model, tokens) VALUES (?, ?, ?, ?, ?, ?)`,
-[uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens]);
+db.prepare(`UPDATE items SET summary=?, tags=?, pillar_id=?, pillar_name=?, topic_id=?, topic_name=?, confidence=?, rationale=?, status='classified', updated_at=datetime('now') WHERE id=?`)
+.run(result.summary, JSON.stringify(result.tags), result.pillar_id, result.pillar_name, result.topic_id, result.topic_name, result.confidence, result.rationale, id);
+db.prepare(`INSERT INTO classification_log (id, item_id, prompt, response, model, tokens) VALUES (?, ?, ?, ?, ?, ?)`)
+.run(uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens);
 results.push({ success: true, video: video.title, id });
 } catch (err) {
-dbRun(“UPDATE items SET status=‘error’, rationale=? WHERE id=?”, [err.message, id]);
+db.prepare(“UPDATE items SET status=‘error’, rationale=? WHERE id=?”).run(err.message, id);
 results.push({ success: false, video: video.title, error: err.message });
 }
 }
@@ -423,40 +379,33 @@ res.status(500).json({ error: err.message });
 }
 });
 
-// ── RECLASSIFY ITEM (NEW) ──────────────────
 app.patch(”/items/:id/reclassify”, (req, res) => {
 const { id } = req.params;
 const { pillar_id, topic_name } = req.body;
-
 if (!pillar_id || !topic_name) {
 return res.status(400).json({ error: “Missing pillar_id or topic_name” });
 }
-
 const pillar = PILLARS.find(p => p.id === pillar_id);
 if (!pillar) return res.status(404).json({ error: “Pillar not found” });
-
 if (!pillar.topics.includes(topic_name)) {
 return res.status(400).json({ error: “Topic not found in pillar” });
 }
-
-const item = dbGet(“SELECT * FROM items WHERE id=?”, [id]);
+const item = db.prepare(“SELECT * FROM items WHERE id=?”).get(id);
 if (!item) return res.status(404).json({ error: “Item not found” });
-
-dbRun(`UPDATE items SET pillar_id=?, pillar_name=?, topic_name=?, status='confirmed', updated_at=datetime('now') WHERE id=?`,
-[pillar_id, pillar.name_en, topic_name, id]);
-
-const updated = dbGet(“SELECT * FROM items WHERE id=?”, [id]);
+db.prepare(`UPDATE items SET pillar_id=?, pillar_name=?, topic_name=?, status='confirmed', updated_at=datetime('now') WHERE id=?`)
+.run(pillar_id, pillar.name_en, topic_name, id);
+const updated = db.prepare(“SELECT * FROM items WHERE id=?”).get(id);
 res.json({ success: true, item: parseItem(updated) });
 });
 
 app.patch(”/items/:id/confirm”, (req, res) => {
 const { id } = req.params;
 const { pillar_id, pillar_name, topic_id, topic_name, tags, summary } = req.body;
-const item = dbGet(“SELECT * FROM items WHERE id=?”, [id]);
+const item = db.prepare(“SELECT * FROM items WHERE id=?”).get(id);
 if (!item) return res.status(404).json({ error: “Item not found.” });
-dbRun(`UPDATE items SET pillar_id=COALESCE(?,pillar_id), pillar_name=COALESCE(?,pillar_name), topic_id=COALESCE(?,topic_id), topic_name=COALESCE(?,topic_name), tags=COALESCE(?,tags), summary=COALESCE(?,summary), status='confirmed', updated_at=datetime('now') WHERE id=?`,
-[pillar_id||null, pillar_name||null, topic_id||null, topic_name||null, tags ? JSON.stringify(tags) : null, summary||null, id]);
-const updated = dbGet(“SELECT * FROM items WHERE id=?”, [id]);
+db.prepare(`UPDATE items SET pillar_id=COALESCE(?,pillar_id), pillar_name=COALESCE(?,pillar_name), topic_id=COALESCE(?,topic_id), topic_name=COALESCE(?,topic_name), tags=COALESCE(?,tags), summary=COALESCE(?,summary), status='confirmed', updated_at=datetime('now') WHERE id=?`)
+.run(pillar_id||null, pillar_name||null, topic_id||null, topic_name||null, tags ? JSON.stringify(tags) : null, summary||null, id);
+const updated = db.prepare(“SELECT * FROM items WHERE id=?”).get(id);
 res.json({ success: true, item: parseItem(updated) });
 });
 
@@ -468,25 +417,23 @@ if (pillar) { query += “ AND pillar_id=?”; params.push(pillar); }
 if (status) { query += “ AND status=?”;    params.push(status); }
 query += “ ORDER BY created_at DESC LIMIT ? OFFSET ?”;
 params.push(Number(limit), Number(offset));
-const rows = dbAll(query, params);
-const total = dbGet(“SELECT COUNT(*) as n FROM items”);
-res.json({ total: total ? total.n : 0, items: rows.map(parseItem) });
+const rows = db.prepare(query).all(…params);
+const total = db.prepare(“SELECT COUNT(*) as n FROM items”).get();
+res.json({ total: total.n, items: rows.map(parseItem) });
 });
 
 app.get(”/items/:id”, (req, res) => {
-const item = dbGet(“SELECT * FROM items WHERE id=?”, [req.params.id]);
+const item = db.prepare(“SELECT * FROM items WHERE id=?”).get(req.params.id);
 if (!item) return res.status(404).json({ error: “Item not found.” });
 res.json(parseItem(item));
 });
 
 app.get(”/logs”, (_, res) => {
-const logs = dbAll(“SELECT * FROM classification_log ORDER BY created_at DESC LIMIT 100”);
+const logs = db.prepare(“SELECT * FROM classification_log ORDER BY created_at DESC LIMIT 100”).all();
 res.json(logs);
 });
 
 app.use(”/uploads”, express.static(UPLOAD_DIR));
 
 const PORT = process.env.PORT || 3000;
-initDB().then(() => {
 app.listen(PORT, () => console.log(`Insight Vault API v2.4 running on port ${PORT}`));
-});
