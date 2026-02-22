@@ -386,7 +386,7 @@ app.get('/vault', (req, res) => {
     ...item,
     tags: item.tags ? JSON.parse(item.tags) : [],
   }));
-  res.json(items);
+  res.json({ items });
 });
 
 app.get('/items/:id', (req, res) => {
@@ -476,7 +476,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     `).run(uuidv4(), id, prompt, JSON.stringify(result), 'gpt-4o-mini', tokens);
 
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
-    res.status(201).json({ ...item, tags: JSON.parse(item.tags || '[]') });
+    const parsed = { ...item, tags: JSON.parse(item.tags || '[]') };
+    res.status(201).json({ item: parsed });
 
   } catch (err) {
     console.error('[upload] error:', err);
@@ -524,7 +525,8 @@ app.post('/youtube', async (req, res) => {
     `).run(uuidv4(), id, prompt, JSON.stringify(result), 'gpt-4o-mini', tokens);
 
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
-    res.status(201).json({ ...item, tags: JSON.parse(item.tags || '[]') });
+    const parsed = { ...item, tags: JSON.parse(item.tags || '[]') };
+    res.status(201).json({ item: parsed });
 
   } catch (err) {
     console.error('[youtube] error:', err);
@@ -604,8 +606,7 @@ app.patch('/items/:id/confirm', (req, res) => {
     UPDATE items SET status = 'confirmed', updated_at = datetime('now') WHERE id = ?
   `).run(req.params.id);
   if (!result.changes) return res.status(404).json({ error: 'Not found' });
-  const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
-  res.json({ ...item, tags: JSON.parse(item.tags || '[]') });
+  res.json({ success: true });
 });
 
 // PATCH /items/:id/reclassify
@@ -626,8 +627,7 @@ app.patch('/items/:id/reclassify', (req, res) => {
   `).run(pillar.id, pillar.name_en, topic.id, topic.name, req.params.id);
 
   if (!result.changes) return res.status(404).json({ error: 'Not found' });
-  const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
-  res.json({ ...item, tags: JSON.parse(item.tags || '[]') });
+  res.json({ success: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
