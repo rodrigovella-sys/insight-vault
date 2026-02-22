@@ -441,7 +441,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     let drive_url     = null;
 
     if (driveEnabled) {
-      const uploaded = await drive.upload(buffer, filename, mimetype);
+      const uploaded = await drive.upload(buffer, original, mimetype);
       drive_file_id  = uploaded.id;
       drive_url      = uploaded.url;
     } else {
