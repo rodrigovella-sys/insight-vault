@@ -41,16 +41,17 @@ function isEnabled() {
 
 /**
  * Upload a buffer to the InsightVault folder in Google Drive.
+ * Uses the original filename and shares the file with the vault owner.
  * @returns {Promise<{id: string, url: string}>}
  */
-async function upload(buffer, filename, mimetype) {
+async function upload(buffer, originalName, mimetype) {
   const readable = new Readable();
   readable.push(buffer);
   readable.push(null);
 
   const res = await driveClient.files.create({
     requestBody: {
-      name:    filename,
+      name:    originalName,
       parents: [FOLDER_ID],
     },
     media: {
@@ -60,7 +61,22 @@ async function upload(buffer, filename, mimetype) {
     fields: 'id, webViewLink',
   });
 
-  return { id: res.data.id, url: res.data.webViewLink };
+  const fileId = res.data.id;
+
+  // Share file with vault owner so they can open it directly
+  const ownerEmail = process.env.GOOGLE_DRIVE_OWNER_EMAIL;
+  if (ownerEmail) {
+    try {
+      await driveClient.permissions.create({
+        fileId,
+        requestBody: { type: 'user', role: 'writer', emailAddress: ownerEmail },
+      });
+    } catch (err) {
+      console.warn('[Drive] Could not share file with owner:', err.message);
+    }
+  }
+
+  return { id: fileId, url: res.data.webViewLink };
 }
 
 /**
