@@ -1,4 +1,4 @@
-// backend/server.js — Insight Vault v3.0 — Google Drive Edition
+
 require('dotenv').config();
 const express   = require('express');
 const cors      = require('cors');
