@@ -1,0 +1,21 @@
+# Node
+node_modules/
+
+# Env files
+.env
+backend/.env
+frontend/.env
+
+# Local databases / uploads
+backend/vault.db
+backend/uploads/
+*.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db

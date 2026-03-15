@@ -75,8 +75,17 @@ console.log(`[Drive] ${driveEnabled ? '✓ enabled (Google Drive)' : '✗ disabl
 // ─────────────────────────────────────────────────────────────────────────────
 // OPENAI + YOUTUBE
 // ─────────────────────────────────────────────────────────────────────────────
-const openai  = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const youtube = google.youtube({ version: 'v3', auth: process.env.YOUTUBE_API_KEY });
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+if (!openaiApiKey) {
+  console.warn('[OpenAI] ✗ disabled — set OPENAI_API_KEY to enable classification');
+}
+
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+const youtube = youtubeApiKey ? google.youtube({ version: 'v3', auth: youtubeApiKey }) : null;
+if (!youtubeApiKey) {
+  console.warn('[YouTube] ✗ disabled — set YOUTUBE_API_KEY to enable YouTube features');
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MULTER — memory storage (file goes to Drive or local after)
@@ -301,6 +310,11 @@ async function extractText(buffer, mimetype) {
 }
 
 async function classify(text, filename) {
+  if (!openai) {
+    const err = new Error('OpenAI is not configured (missing OPENAI_API_KEY)');
+    err.status = 400;
+    throw err;
+  }
   const taxonomyText = PILLARS.map(p =>
     `${p.id} - ${p.name_en}:\n${p.topics.map(t => `  ${t.id}: ${t.name}`).join('\n')}`
   ).join('\n\n');
@@ -481,7 +495,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
   } catch (err) {
     console.error('[upload] error:', err);
-    res.status(500).json({ error: 'Upload failed', details: err.message });
+    res.status(err.status || 500).json({ error: 'Upload failed', details: err.message });
   }
 });
 
@@ -489,6 +503,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 app.post('/youtube', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'Missing url' });
+  if (!youtube) return res.status(400).json({ error: 'YouTube is not configured (missing YOUTUBE_API_KEY)' });
 
   const match = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   if (!match) return res.status(400).json({ error: 'Invalid YouTube URL' });
@@ -530,7 +545,7 @@ app.post('/youtube', async (req, res) => {
 
   } catch (err) {
     console.error('[youtube] error:', err);
-    res.status(500).json({ error: 'YouTube classification failed', details: err.message });
+    res.status(err.status || 500).json({ error: 'YouTube classification failed', details: err.message });
   }
 });
 
@@ -538,6 +553,7 @@ app.post('/youtube', async (req, res) => {
 app.post('/youtube/playlist', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'Missing url' });
+  if (!youtube) return res.status(400).json({ error: 'YouTube is not configured (missing YOUTUBE_API_KEY)' });
 
   const match = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
   if (!match) return res.status(400).json({ error: 'Invalid playlist URL' });
@@ -596,7 +612,7 @@ app.post('/youtube/playlist', async (req, res) => {
 
   } catch (err) {
     console.error('[playlist] error:', err);
-    res.status(500).json({ error: 'Playlist failed', details: err.message });
+    res.status(err.status || 500).json({ error: 'Playlist failed', details: err.message });
   }
 });
 
