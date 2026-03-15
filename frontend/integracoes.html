@@ -259,7 +259,9 @@
 <div id="toast"></div>
 
 <script>
-  const API = "https://insight-vault-58jj.onrender.com";
+  const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:3000'
+    : 'https://insight-vault-58jj.onrender.com';
   let currentItemId = null;
   let currentItemIdYt = null;
 
