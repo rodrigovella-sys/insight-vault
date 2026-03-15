@@ -1,5 +1,5 @@
 // backend/drive.js — Google Drive integration for Insight Vault v3.0
-// Uses Service Account credentials (JSON key stored as env var)
+// Uses OAuth2 credentials (Client ID + Secret + Refresh Token)
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
@@ -7,27 +7,22 @@ const { Readable } = require('stream');
 let driveClient = null;
 let FOLDER_ID   = null;
 
-/**
- * Initialize Drive client.
- * Reads GOOGLE_SERVICE_ACCOUNT_KEY (JSON string) and GOOGLE_DRIVE_FOLDER_ID from env.
- * Returns true if initialization succeeded.
- */
 function init() {
-  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  FOLDER_ID     = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  FOLDER_ID          = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-  if (!keyJson || !FOLDER_ID) {
+  if (!clientId || !clientSecret || !refreshToken || !FOLDER_ID) {
+    console.warn('[Drive] Missing env vars — Drive disabled.');
     return false;
   }
 
   try {
-    const credentials = JSON.parse(keyJson);
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    driveClient = google.drive({ version: 'v3', auth });
-    console.log('[Drive] Service account:', credentials.client_email);
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    driveClient = google.drive({ version: 'v3', auth: oauth2Client });
+    console.log('[Drive] OAuth2 client initialized');
     return true;
   } catch (err) {
     console.error('[Drive] Init error:', err.message);
@@ -39,19 +34,14 @@ function isEnabled() {
   return driveClient !== null;
 }
 
-/**
- * Upload a buffer to the InsightVault folder in Google Drive.
- * Uses the original filename and shares the file with the vault owner.
- * @returns {Promise<{id: string, url: string}>}
- */
-async function upload(buffer, originalName, mimetype) {
+async function upload(buffer, filename, mimetype) {
   const readable = new Readable();
   readable.push(buffer);
   readable.push(null);
 
   const res = await driveClient.files.create({
     requestBody: {
-      name:    originalName,
+      name:    filename,
       parents: [FOLDER_ID],
     },
     media: {
@@ -61,27 +51,9 @@ async function upload(buffer, originalName, mimetype) {
     fields: 'id, webViewLink',
   });
 
-  const fileId = res.data.id;
-
-  // Share file with vault owner so they can open it directly
-  const ownerEmail = process.env.GOOGLE_DRIVE_OWNER_EMAIL;
-  if (ownerEmail) {
-    try {
-      await driveClient.permissions.create({
-        fileId,
-        requestBody: { type: 'user', role: 'writer', emailAddress: ownerEmail },
-      });
-    } catch (err) {
-      console.warn('[Drive] Could not share file with owner:', err.message);
-    }
-  }
-
-  return { id: fileId, url: res.data.webViewLink };
+  return { id: res.data.id, url: res.data.webViewLink };
 }
 
-/**
- * Download a file from Google Drive as a Buffer.
- */
 async function download(fileId) {
   const res = await driveClient.files.get(
     { fileId, alt: 'media' },
@@ -90,9 +62,6 @@ async function download(fileId) {
   return Buffer.from(res.data);
 }
 
-/**
- * Delete a file from Google Drive.
- */
 async function remove(fileId) {
   await driveClient.files.delete({ fileId });
 }
