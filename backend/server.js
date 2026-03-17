@@ -1,4 +1,4 @@
-// backend/server.js - Insight Vault v3.0 - Google Drive Edition
+// backend/server.js — Insight Vault v3.0 — Google Drive Edition
 require('dotenv').config();
 const express   = require('express');
 const cors      = require('cors');
@@ -400,7 +400,7 @@ app.get('/vault', (req, res) => {
     ...item,
     tags: item.tags ? JSON.parse(item.tags) : [],
   }));
-  res.json({ items });
+  res.json(items);
 });
 
 app.get('/items/:id', (req, res) => {
@@ -450,24 +450,25 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const text = await extractText(buffer, mimetype);
 
-    // Store file: Drive or local
-    let drive_file_id = null;
-    let drive_url     = null;
-
-    if (driveEnabled) {
-      const uploaded = await drive.upload(buffer, original, mimetype);
-      drive_file_id  = uploaded.id;
-      drive_url      = uploaded.url;
-    } else {
-      fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
-    }
-
-    // Classify with OpenAI
+    // Classify with OpenAI first (we need the pillar to pick the right Drive subfolder)
     const { result, tokens, prompt } = await classify(text || original, original);
 
     // Validate against taxonomy (fallback to P1 first topic if invalid)
     const pillar = PILLARS.find(p => p.id === result.pillar_id) || PILLARS[0];
     const topic  = pillar.topics.find(t => t.id === result.topic_id) || pillar.topics[0];
+
+    // Store file: Drive subfolder (by pillar) or local
+    let drive_file_id = null;
+    let drive_url     = null;
+    const pillarFolder = `${pillar.id} - ${pillar.name_pt}`;
+
+    if (driveEnabled) {
+      const uploaded = await drive.upload(buffer, filename, mimetype, pillarFolder);
+      drive_file_id  = uploaded.id;
+      drive_url      = uploaded.url;
+    } else {
+      fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
+    }
 
     // Persist
     db.prepare(`
@@ -490,8 +491,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     `).run(uuidv4(), id, prompt, JSON.stringify(result), 'gpt-4o-mini', tokens);
 
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
-    const parsed = { ...item, tags: JSON.parse(item.tags || '[]') };
-    res.status(201).json({ item: parsed });
+    res.status(201).json({ ...item, tags: JSON.parse(item.tags || '[]') });
 
   } catch (err) {
     console.error('[upload] error:', err);
@@ -540,8 +540,7 @@ app.post('/youtube', async (req, res) => {
     `).run(uuidv4(), id, prompt, JSON.stringify(result), 'gpt-4o-mini', tokens);
 
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
-    const parsed = { ...item, tags: JSON.parse(item.tags || '[]') };
-    res.status(201).json({ item: parsed });
+    res.status(201).json({ ...item, tags: JSON.parse(item.tags || '[]') });
 
   } catch (err) {
     console.error('[youtube] error:', err);
@@ -571,6 +570,7 @@ app.post('/youtube/playlist', async (req, res) => {
       pageToken = ytRes.data.nextPageToken;
     } while (pageToken);
 
+    // Respond immediately, process in background
     res.json({ message: `Processing ${items.length} videos...`, total: items.length });
 
     (async () => {
@@ -622,7 +622,8 @@ app.patch('/items/:id/confirm', (req, res) => {
     UPDATE items SET status = 'confirmed', updated_at = datetime('now') WHERE id = ?
   `).run(req.params.id);
   if (!result.changes) return res.status(404).json({ error: 'Not found' });
-  res.json({ success: true });
+  const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
+  res.json({ ...item, tags: JSON.parse(item.tags || '[]') });
 });
 
 // PATCH /items/:id/reclassify
@@ -643,7 +644,8 @@ app.patch('/items/:id/reclassify', (req, res) => {
   `).run(pillar.id, pillar.name_en, topic.id, topic.name, req.params.id);
 
   if (!result.changes) return res.status(404).json({ error: 'Not found' });
-  res.json({ success: true });
+  const item = db.prepare('SELECT * FROM items WHERE id = ?').get(req.params.id);
+  res.json({ ...item, tags: JSON.parse(item.tags || '[]') });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
