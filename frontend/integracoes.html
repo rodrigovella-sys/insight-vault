@@ -321,8 +321,8 @@
       const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
       const data = await res.json();
       document.getElementById("spinner").classList.remove("visible");
-      if (!res.ok || data.error) throw new Error(data.error || data.detail || "Unknown error");
-      showResult(data.item, file.name);
+      if (!res.ok) throw new Error(data.details || data.error || data.detail || "Unknown error");
+      showResult(data.item || data, file.name);
     } catch (err) {
       document.getElementById("spinner").classList.remove("visible");
       showError(err.message, file.name);
@@ -338,8 +338,8 @@
     document.getElementById("resultFile").textContent = filename || item.original;
     document.getElementById("resultStatus").textContent = item.status;
     document.getElementById("resultSummary").textContent = item.summary || "No summary.";
-    document.getElementById("resultPillar").textContent = `${item.pillar_id} – ${item.pillar_name}`;
-    document.getElementById("resultTopic").textContent = item.topic_name || "—";
+    document.getElementById("resultPillar").textContent = `${item.pillarId} – ${item.pillarName}`;
+    document.getElementById("resultTopic").textContent = item.topicName || "—";
     document.getElementById("resultRationale").textContent = item.rationale || "";
     const pct = Math.round((item.confidence || 0) * 100);
     document.getElementById("resultConfidence").textContent = pct + "%";
@@ -375,7 +375,7 @@
         method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({})
       });
       const data = await res.json();
-      if (data.success) {
+      if (data?.id || data?.success) {
         document.getElementById("resultStatus").textContent = "confirmed";
         document.getElementById("confirmBtn").textContent = "✅ Confirmed!";
         document.getElementById("confirmBtn").disabled = true;
@@ -401,8 +401,8 @@
       });
       const data = await res.json();
       document.getElementById("spinnerYt").classList.remove("visible");
-      if (!res.ok || data.error) throw new Error(data.error || "Erro desconhecido");
-      showResultYt(data.item, url);
+      if (!res.ok) throw new Error(data.details || data.error || "Erro desconhecido");
+      showResultYt(data.item || data, url);
     } catch (err) {
       document.getElementById("spinnerYt").classList.remove("visible");
       const card = document.getElementById("resultCardYt");
@@ -420,8 +420,8 @@
     document.getElementById("resultFileYt").textContent = url;
     document.getElementById("resultStatusYt").textContent = item.status;
     document.getElementById("resultSummaryYt").textContent = item.summary || "Sem resumo.";
-    document.getElementById("resultPillarYt").textContent = `${item.pillar_id} – ${item.pillar_name}`;
-    document.getElementById("resultTopicYt").textContent = item.topic_name || "—";
+    document.getElementById("resultPillarYt").textContent = `${item.pillarId} – ${item.pillarName}`;
+    document.getElementById("resultTopicYt").textContent = item.topicName || "—";
     document.getElementById("resultRationaleYt").textContent = item.rationale || "";
     const pct = Math.round((item.confidence || 0) * 100);
     document.getElementById("resultConfidenceYt").textContent = pct + "%";
@@ -441,7 +441,7 @@
         method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({})
       });
       const data = await res.json();
-      if (data.success) {
+      if (data?.id || data?.success) {
         document.getElementById("resultStatusYt").textContent = "confirmed";
         document.getElementById("confirmBtnYt").textContent = "✅ Confirmed!";
         document.getElementById("confirmBtnYt").disabled = true;
@@ -466,11 +466,11 @@
     try {
       const res = await fetch(url);
       const data = await res.json();
-      let items = data.items || [];
+      let items = Array.isArray(data) ? data : (data.items || []);
       if (search) items = items.filter(i =>
         (i.original||"").toLowerCase().includes(search) ||
         (i.summary||"").toLowerCase().includes(search) ||
-        (i.pillar_name||"").toLowerCase().includes(search)
+        (i.pillarName||"").toLowerCase().includes(search)
       );
       const grid = document.getElementById("vaultGrid");
       if (!items.length) {
@@ -485,12 +485,12 @@
               <div>
                 <h4>${item.original || item.filename}</h4>
                 <div class="vault-item-meta" style="margin-top:4px;">
-                  <span class="vault-pill">${item.pillar_id||"?"} – ${item.pillar_name||"Unclassified"}</span>
-                  ${item.topic_name?`<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4;">${item.topic_name}</span>`:""}
+                  <span class="vault-pill">${item.pillarId||"?"} – ${item.pillarName||"Unclassified"}</span>
+                  ${item.topicName?`<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4;">${item.topicName}</span>`:""}
                 </div>
               </div>
             </div>
-            <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${(item.created_at||"").slice(0,10)}</span>
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${(item.createdAt||"").slice(0,10)}</span>
           </div>
           <div class="vault-item-summary">${item.summary||"Sem resumo."}</div>
           ${item.tags?.length?`<div class="tags-row" style="margin-top:8px;">${item.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>`:""}

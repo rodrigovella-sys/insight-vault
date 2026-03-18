@@ -32,8 +32,8 @@ async function createYoutubeItem(ctx, { url }) {
   const text = `Title: ${title}\nChannel: ${channelTitle}\n\n${description}`;
 
   const { result, tokens, prompt } = await ctx.classify(text, title);
-  const pillar = ctx.PILLARS.find((p) => p.id === result.pillar_id) || ctx.PILLARS[0];
-  const topic = pillar.topics.find((t) => t.id === result.topic_id) || pillar.topics[0];
+  const pillar = ctx.PILLARS.find((p) => p.id === result.pillarId) || ctx.PILLARS[0];
+  const topic = pillar.topics.find((t) => t.id === result.topicId) || pillar.topics[0];
 
   const dbTaxonomy = ctx.apiItemToDbClassification(pillar, topic);
 

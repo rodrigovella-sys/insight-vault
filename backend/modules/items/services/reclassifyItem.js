@@ -1,14 +1,14 @@
 function reclassifyItem(ctx, { id, pillarId, topicId }) {
   const pillar = ctx.PILLARS.find((p) => p.id === pillarId);
   if (!pillar) {
-    const err = new Error('Invalid pillar_id');
+    const err = new Error('Invalid pillarId');
     err.status = 400;
     throw err;
   }
 
   const topic = pillar.topics.find((t) => t.id === topicId);
   if (!topic) {
-    const err = new Error('Invalid topic_id');
+    const err = new Error('Invalid topicId');
     err.status = 400;
     throw err;
   }

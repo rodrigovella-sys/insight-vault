@@ -55,8 +55,8 @@ function createItemsController(ctx) {
       res.json(
         reclassifyItem(ctx, {
           id: req.params.id,
-          pillarId: req.body?.pillar_id,
-          topicId: req.body?.topic_id,
+          pillarId: req.body?.pillarId,
+          topicId: req.body?.topicId,
         })
       );
     } catch (err) {

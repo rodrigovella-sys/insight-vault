@@ -13,17 +13,19 @@ const drive = require('./drive');
 
 function itemRowToApi(row) {
   if (!row) return row;
+  let tags = [];
+  if (Array.isArray(row.tags)) {
+    tags = row.tags;
+  } else if (typeof row.tags === 'string' && row.tags.trim()) {
+    try {
+      tags = JSON.parse(row.tags);
+    } catch {
+      tags = [];
+    }
+  }
   return {
     ...row,
-    pillar_id: row.pillarId,
-    pillar_name: row.pillarName,
-    topic_id: row.topicId,
-    topic_name: row.topicName,
-    drive_file_id: row.driveFileId,
-    drive_url: row.driveUrl,
-    created_at: row.createdAt,
-    updated_at: row.updatedAt,
-    tags: row.tags ? JSON.parse(row.tags) : [],
+    tags,
   };
 }
 
@@ -96,14 +98,14 @@ CONTENT:
 Filename: ${filename}
 Text: ${String(text || '').slice(0, 8000)}
 
-Return a valid JSON object with this exact structure:
+    Return a valid JSON object with this exact structure:
 {
   "summary": "2-3 sentence summary in the same language as the content",
   "tags": ["tag1", "tag2", "tag3"],
-  "pillar_id": "P1",
-  "pillar_name": "exact pillar name_en",
-  "topic_id": "P1.01",
-  "topic_name": "exact topic name",
+  "pillarId": "P1",
+  "pillarName": "exact pillar name_en",
+  "topicId": "P1.01",
+  "topicName": "exact topic name",
   "confidence": 0.95,
   "rationale": "brief explanation why this classification was chosen"
 }`;
@@ -115,7 +117,14 @@ Return a valid JSON object with this exact structure:
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const raw = JSON.parse(response.choices[0].message.content);
+    const result = {
+      ...raw,
+      pillarId: raw?.pillarId ?? raw?.pillar_id,
+      pillarName: raw?.pillarName ?? raw?.pillar_name,
+      topicId: raw?.topicId ?? raw?.topic_id,
+      topicName: raw?.topicName ?? raw?.topic_name,
+    };
     const tokens = response.usage?.total_tokens || 0;
     return { result, tokens, prompt };
   }

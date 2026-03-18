@@ -54,20 +54,20 @@ app.post('/youtube', async (req, res) => {
 
     db.prepare(`
       UPDATE items SET
-        summary=?, tags=?, pillar_id=?, pillar_name=?,
-        topic_id=?, topic_name=?, confidence=?, rationale=?,
-        status='classified', updated_at=datetime('now')
+        summary=?, tags=?, pillarId=?, pillarName=?,
+        topicId=?, topicName=?, confidence=?, rationale=?,
+        status='classified', updatedAt=datetime('now')
       WHERE id=?
     `).run(
       result.summary, JSON.stringify(result.tags),
-      result.pillar_id, result.pillar_name,
-      result.topic_id, result.topic_name,
+      result.pillarId, result.pillarName,
+      result.topicId, result.topicName,
       result.confidence, result.rationale, id
     );
 
     // 5. Audit log
     db.prepare(`
-      INSERT INTO classification_log (id, item_id, prompt, response, model, tokens)
+      INSERT INTO classification_log (id, itemId, prompt, response, model, tokens)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(uuidv4(), id, logData.prompt, logData.response, logData.model, logData.tokens);
 

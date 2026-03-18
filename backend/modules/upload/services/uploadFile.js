@@ -21,8 +21,8 @@ async function uploadFile(ctx, { file }) {
 
   const { result, tokens, prompt } = await ctx.classify(text || original, original);
 
-  const pillar = ctx.PILLARS.find((p) => p.id === result.pillar_id) || ctx.PILLARS[0];
-  const topic = pillar.topics.find((t) => t.id === result.topic_id) || pillar.topics[0];
+  const pillar = ctx.PILLARS.find((p) => p.id === result.pillarId) || ctx.PILLARS[0];
+  const topic = pillar.topics.find((t) => t.id === result.topicId) || pillar.topics[0];
 
   let driveFileId = null;
   let driveUrl = null;
