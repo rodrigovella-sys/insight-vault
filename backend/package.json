@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "inspect:xlsx": "node data/inspect-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\"",
+    "import:xlsx": "node data/import-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\" --truncate",
+    "debug:db": "node data/debug-db.js --counts --sample-xlsx"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -17,7 +20,8 @@
     "axios": "^1.7.2",
     "better-sqlite3": "^11.0.0",
     "pdf-parse": "^1.1.1",
-    "googleapis": "^134.0.0"
+    "googleapis": "^134.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

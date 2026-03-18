@@ -31,6 +31,29 @@ npm run dev
 
 Backend sobe em `http://localhost:3000` (ou `PORT`).
 
+#### Organização do backend (módulos)
+
+- `backend/server.js`: somente boot do Express + montagem dos endpoints.
+- `backend/context.js`: dependências compartilhadas (db, drive, OpenAI, YouTube) + helpers.
+- `backend/modules/*/controller.js`: controllers por módulo (endpoints):
+	- `system` (`/health`)
+	- `taxonomy` (`/pillars`, `/topics`)
+	- `items` (`/vault`, `/items/:id`, `/items/:id/file`, confirm/reclassify)
+	- `upload` (`/upload`)
+	- `youtube` (`/youtube`, `/youtube/playlist`)
+	- `database` (`/database/backup`, `/database/restore`, `/database/recover`)
+- `backend/modules/*/services/*`: lógica por endpoint (ex.: `getVault`, `uploadFile`, etc.).
+
+#### Scripts de planilha (carga inicial)
+
+Os utilitários de XLSX ficam em `backend/data/`:
+
+```bash
+cd backend
+npm run inspect:xlsx
+npm run import:xlsx
+```
+
 ### Frontend (estático)
 
 O frontend é HTML/CSS/JS estático.
