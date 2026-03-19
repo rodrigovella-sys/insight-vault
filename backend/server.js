@@ -5,11 +5,17 @@ const dotenv = require('dotenv');
 
 // Load environment variables from local files for development.
 // Priority: backend/.env.local -> backend/.env.development -> backend/.env
+let loadedEnvPath = null;
 for (const envPath of [path.join(__dirname, '.env.local'), path.join(__dirname, '.env.development'), path.join(__dirname, '.env')]) {
   if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath, override: false });
+    loadedEnvPath = envPath;
     break;
   }
+}
+
+if (loadedEnvPath) {
+  console.log(`[Env] loaded ${path.basename(loadedEnvPath)}`);
 }
 const express = require('express');
 const cors = require('cors');

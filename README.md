@@ -17,9 +17,14 @@ node -v
 
 1) Configure variáveis de ambiente:
 
-- Crie `backend/.env.local` (recomendado) a partir de `backend/.env.example`.
+- Crie `backend/.env.local` (recomendado) a partir de `backend/.env.local.example`.
 - Preencha pelo menos `OPENAI_API_KEY` (e `YOUTUBE_API_KEY` se for usar YouTube).
 - Google Drive é opcional; sem isso, o backend salva arquivos localmente em `backend/uploads`.
+
+Para habilitar Google Drive, configure no `backend/.env.local`:
+
+- `GOOGLE_DRIVE_FOLDER_ID`
+- `GOOGLE_SERVICE_ACCOUNT_KEY` (JSON em uma única linha)
 
 Obs: o backend também aceita `backend/.env` como fallback, mas o padrão local é usar `.env.local` (que não deve ir para o repositório).
 

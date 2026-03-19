@@ -1,5 +1,5 @@
 import { API_BASE } from "./config.js";
-import { setStatus, toast } from "./ui.js";
+import { setIndicator, setStatus, toast } from "./ui.js";
 import { initUpload, confirmClassification, resetUpload } from "./Upload/upload.js";
 import { submitYouTube, confirmClassificationYt, resetYouTube, submitPlaylist, resetPlaylist } from "./YouTube/youtube.js";
 import {
@@ -28,8 +28,35 @@ async function checkHealth(): Promise<void> {
     const r = await fetch(`${API_BASE}/health`);
     const d = await r.json();
     setStatus(`Backend online · ${d.items} items · v${d.version}`, "ok");
+
+    const driveEnabled = Boolean(d.driveEnabled ?? d.drive === "enabled");
+    setIndicator(
+      "driveDot",
+      "driveText",
+      driveEnabled ? "Upload: Google Drive" : "Upload: Local",
+      driveEnabled ? "ok" : "err"
+    );
+
+    const openaiEnabled = Boolean(d.openaiEnabled);
+    setIndicator(
+      "openaiDot",
+      "openaiText",
+      openaiEnabled ? "OpenAI: online" : "OpenAI: offline",
+      openaiEnabled ? "ok" : "err"
+    );
+
+    const youtubeEnabled = Boolean(d.youtubeEnabled);
+    setIndicator(
+      "youtubeDot",
+      "youtubeText",
+      youtubeEnabled ? "YouTube: online" : "YouTube: offline",
+      youtubeEnabled ? "ok" : "err"
+    );
   } catch {
     setStatus("Backend offline", "err");
+    setIndicator("driveDot", "driveText", "Upload: —", "loading");
+    setIndicator("openaiDot", "openaiText", "OpenAI: —", "loading");
+    setIndicator("youtubeDot", "youtubeText", "YouTube: —", "loading");
   }
 }
 

@@ -27,9 +27,10 @@ async function uploadFile(ctx, { file }) {
   let driveFileId = null;
   let driveUrl = null;
   const pillarFolder = `${pillar.id} - ${pillar.name_pt}`;
+  const topicFolder = `${topic.id} - ${topic.name}`;
 
   if (ctx.driveEnabled) {
-    const uploaded = await ctx.drive.upload(buffer, filename, mimetype, pillarFolder);
+    const uploaded = await ctx.drive.upload(buffer, filename, mimetype, [pillarFolder, topicFolder]);
     driveFileId = uploaded.id;
     driveUrl = uploaded.url;
   } else {

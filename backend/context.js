@@ -60,20 +60,20 @@ function createAppContext() {
 
   // Drive
   const driveEnabled = drive.init();
-  console.log(`[Drive] ${driveEnabled ? '✓ enabled (Google Drive)' : '✗ disabled — using local storage'}`);
+  console.warn(`[Drive] ${driveEnabled ? '✓ enabled (Google Drive)' : '✗ disabled — using local storage'}`);
 
   // OpenAI
   const openaiApiKey = process.env.OPENAI_API_KEY;
   const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-  if (!openaiApiKey) {
-    console.warn('[OpenAI] ✗ disabled — set OPENAI_API_KEY to enable classification');
-  }
+  const openaiEnabled = Boolean(openaiApiKey);
+  console.warn(`[OpenAI] ${openaiEnabled ? '✓ enabled (OpenAI)' : '✗ disabled — set OPENAI_API_KEY to enable classification'}`);
 
   // YouTube
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const youtube = youtubeApiKey ? google.youtube({ version: 'v3', auth: youtubeApiKey }) : null;
+  const youtubeEnabled = Boolean(youtubeApiKey);
   if (!youtubeApiKey) {
-    console.warn('[YouTube] ✗ disabled — set YOUTUBE_API_KEY to enable YouTube features');
+    console.warn(`[YouTube] ${youtubeEnabled ? '✓ enabled (YouTube)' : '✗ disabled — set YOUTUBE_API_KEY to enable YouTube features'}`);
   }
 
   async function classify(text, filename) {
@@ -134,7 +134,9 @@ Text: ${String(text || '').slice(0, 8000)}
     PILLARS,
     drive,
     driveEnabled,
+    openaiEnabled,
     youtube,
+    youtubeEnabled,
     UPLOAD_DIR,
     itemRowToApi,
     apiItemToDbClassification,

@@ -14,8 +14,22 @@
         <p>AI-native personal knowledge system — upload, classify, organize.</p>
       </header>
       <div id="statusBar" class="status-bar">
-        <div class="status-dot dot-loading"></div>
-        <span id="statusText">Connecting...</span>
+        <div class="status-item">
+          <div id="backendDot" class="status-dot dot-loading"></div>
+          <span id="statusText">Connecting...</span>
+        </div>
+        <div class="status-item">
+          <div id="driveDot" class="status-dot dot-loading"></div>
+          <span id="driveText">Upload: —</span>
+        </div>
+        <div class="status-item">
+          <div id="openaiDot" class="status-dot dot-loading"></div>
+          <span id="openaiText">OpenAI: —</span>
+        </div>
+        <div class="status-item">
+          <div id="youtubeDot" class="status-dot dot-loading"></div>
+          <span id="youtubeText">YouTube: —</span>
+        </div>
       </div>
       <div class="tabs">
         <button class="tab active" onclick="switchTab('upload', this)">

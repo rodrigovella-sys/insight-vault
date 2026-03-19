@@ -6,7 +6,8 @@ header{margin-bottom:28px}
 header h1{font-size:36px;letter-spacing:-.5px;margin-bottom:4px}
 header h1 span{color:var(--accent)}
 header p{color:var(--muted);font-size:14px}
-.status-bar{background:rgba(15,26,46,.5);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin-bottom:20px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.status-bar{background:rgba(15,26,46,.5);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin-bottom:20px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.status-item{display:flex;align-items:center;gap:8px}
 .status-dot{width:8px;height:8px;border-radius:50%}
 .dot-ok{background:#00d4b4}.dot-err{background:#ff6b6b}.dot-loading{background:#f7c948}
 .tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border)}
