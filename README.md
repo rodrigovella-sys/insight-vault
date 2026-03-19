@@ -17,9 +17,11 @@ node -v
 
 1) Configure variáveis de ambiente:
 
-- Crie `backend/.env` a partir de `backend/.env.example`.
+- Crie `backend/.env.local` (recomendado) a partir de `backend/.env.example`.
 - Preencha pelo menos `OPENAI_API_KEY` (e `YOUTUBE_API_KEY` se for usar YouTube).
 - Google Drive é opcional; sem isso, o backend salva arquivos localmente em `backend/uploads`.
+
+Obs: o backend também aceita `backend/.env` como fallback, mas o padrão local é usar `.env.local` (que não deve ir para o repositório).
 
 2) Instale e rode:
 

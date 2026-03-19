@@ -1,5 +1,16 @@
 // backend/server.js — Insight Vault v3.0 — Google Drive Edition
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Load environment variables from local files for development.
+// Priority: backend/.env.local -> backend/.env.development -> backend/.env
+for (const envPath of [path.join(__dirname, '.env.local'), path.join(__dirname, '.env.development'), path.join(__dirname, '.env')]) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+    break;
+  }
+}
 const express = require('express');
 const cors = require('cors');
 
