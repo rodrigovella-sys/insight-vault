@@ -38,7 +38,7 @@ async function createYoutubeItem(ctx, { url }) {
   const dbTaxonomy = ctx.apiItemToDbClassification(pillar, topic);
 
   const id = uuidv4();
-  ctx.db
+  await ctx.db
     .prepare(
       `
       INSERT INTO items
@@ -64,7 +64,7 @@ async function createYoutubeItem(ctx, { url }) {
       result.rationale
     );
 
-  ctx.db
+  await ctx.db
     .prepare(
       `
       INSERT INTO classification_log (id, itemId, prompt, response, model, tokens)
@@ -73,7 +73,7 @@ async function createYoutubeItem(ctx, { url }) {
     )
     .run(uuidv4(), id, prompt, JSON.stringify(result), 'gpt-4o-mini', tokens);
 
-  const item = ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+  const item = await ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   return ctx.itemRowToApi(item);
 }
 

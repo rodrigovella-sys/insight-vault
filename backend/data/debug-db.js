@@ -1,7 +1,20 @@
-// backend/debug-db.js
-// Small debug helper to inspect DB contents without PowerShell quoting issues.
+// backend/data/debug-db.js
+// Small debug helper to inspect Postgres DB contents without PowerShell quoting issues.
 
-const db = require('../database');
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Load environment variables from local files for development.
+// Priority: backend/.env.local -> backend/.env.development -> backend/.env
+for (const envPath of [path.join(__dirname, '..', '.env.local'), path.join(__dirname, '..', '.env.development'), path.join(__dirname, '..', '.env')]) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+    break;
+  }
+}
+
+const postgres = require('../dbpostgres');
 
 const args = process.argv.slice(2);
 const hasFlag = (flag) => args.includes(flag);
@@ -16,9 +29,6 @@ if (hasFlag('--help') || hasFlag('-h')) {
   node debug-db.js --counts
   node debug-db.js --sample-xlsx
   node debug-db.js --id <itemId>
-  node debug-db.js --triggers
-  node debug-db.js --test-uuid
-  node debug-db.js --scan-uuid
 
 Notes:
   - --sample-xlsx prints one XLSX item and parses metadataJson.
@@ -26,19 +36,23 @@ Notes:
   process.exit(0);
 }
 
-const printCounts = () => {
-  const total = db.prepare('select count(1) as c from items').get().c;
-  const xlsxTotal = db
-    .prepare("select count(1) as c from items where json_extract(metadataJson, '$.sourceType') = 'xlsx'")
-    .get().c;
-  const xlsxWithMeta = db
-    .prepare(
-      "select count(1) as c from items where json_extract(metadataJson, '$.sourceType') = 'xlsx' and metadataJson is not null and length(metadataJson) > 0"
-    )
-    .get().c;
+async function printCounts(db) {
+  const total = (await db.prepare('select count(1) as c from items').get())?.c || 0;
+  const xlsxTotal =
+    (await db
+      .prepare(
+        "select count(1) as c from items where metadataJson is not null and metadataJson <> '' and (metadataJson::jsonb->>'sourceType') = 'xlsx'"
+      )
+      .get())?.c || 0;
+  const xlsxWithMeta =
+    (await db
+      .prepare(
+        "select count(1) as c from items where metadataJson is not null and char_length(metadataJson) > 0 and (metadataJson::jsonb->>'sourceType') = 'xlsx'"
+      )
+      .get())?.c || 0;
 
   console.log({ totalItems: total, xlsxItems: xlsxTotal, xlsxItemsWithMetadata: xlsxWithMeta });
-};
+}
 
 const printItem = (row) => {
   if (!row) {
@@ -88,116 +102,33 @@ const printItem = (row) => {
   }
 };
 
-const listTriggers = () => {
-  const rows = db
-    .prepare(
-      "select name, tbl_name as tableName, sql from sqlite_master where type='trigger' order by name"
-    )
-    .all();
-  console.log(`Triggers: ${rows.length}`);
-  for (const r of rows) {
-    console.log(`- ${r.name} (table=${r.tableName})`);
-  }
-};
+async function run() {
+  await postgres.init();
+  const db = postgres.db;
 
-const testUuidValidation = () => {
-  const invalidId = 'not-a-uuid';
-  const validId = '00000000-0000-0000-0000-000000000000';
-
-  const tryInsert = (id) => {
-    db.exec('SAVEPOINT uuid_test');
-    try {
-      db.prepare('INSERT INTO items (id, filename) VALUES (?, ?)').run(id, `uuid_test_${Date.now()}`);
-      db.exec('ROLLBACK TO uuid_test');
-      db.exec('RELEASE uuid_test');
-      return { ok: true };
-    } catch (e) {
-      try {
-        db.exec('ROLLBACK TO uuid_test');
-        db.exec('RELEASE uuid_test');
-      } catch {
-        /* ignore */
-      }
-      return { ok: false, error: String(e?.message || e) };
-    }
-  };
-
-  const bad = tryInsert(invalidId);
-  const good = tryInsert(validId);
-
-  console.log('UUID validation test:');
-  console.log({
-    invalidInsertBlocked: !bad.ok,
-    invalidInsertError: bad.ok ? null : bad.error,
-    validInsertAllowed: good.ok,
-    validInsertError: good.ok ? null : good.error,
-  });
-};
-
-const scanExistingUuid = () => {
-  const itemsBad = db
-    .prepare(
-      "select count(1) as c from items where id is null or id not glob '[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'"
-    )
-    .get().c;
-
-  const logBad = db
-    .prepare(
-      "select count(1) as c from classification_log where id is null or id not glob '[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'"
-    )
-    .get().c;
-
-  const logItemBad = db
-    .prepare(
-      "select count(1) as c from classification_log where itemId is not null and itemId not glob '[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'"
-    )
-    .get().c;
-
-  console.log('UUID scan (existing rows):');
-  console.log({
-    itemsInvalidIdRows: itemsBad,
-    classificationLogInvalidIdRows: logBad,
-    classificationLogInvalidItemIdRows: logItemBad,
-  });
-};
-
-const run = () => {
   const id = getArgValue('--id');
 
   if (hasFlag('--counts') || args.length === 0) {
-    printCounts();
-  }
-
-  if (hasFlag('--triggers')) {
-    listTriggers();
-  }
-
-  if (hasFlag('--test-uuid')) {
-    testUuidValidation();
-  }
-
-  if (hasFlag('--scan-uuid')) {
-    scanExistingUuid();
+    await printCounts(db);
   }
 
   if (id) {
-    const row = db
-      .prepare(
-        'select id, metadataJson from items where id = ?'
-      )
-      .get(id);
+    const row = await db.prepare('select id, metadataJson from items where id = ?').get(id);
     printItem(row);
     return;
   }
 
   if (hasFlag('--sample-xlsx')) {
-    const row = db
+    const row = await db
       .prepare(
-        "select id, metadataJson from items where json_extract(metadataJson, '$.sourceType') = 'xlsx' and metadataJson is not null and length(metadataJson) > 0 order by json_extract(metadataJson, '$.sourceSheet') asc, CAST(json_extract(metadataJson, '$.sourceRow') AS INTEGER) asc limit 1"
+        "select id, metadataJson from items where metadataJson is not null and metadataJson <> '' and (metadataJson::jsonb->>'sourceType') = 'xlsx' order by (metadataJson::jsonb->>'sourceSheet') asc, CAST(metadataJson::jsonb->>'sourceRow' AS INTEGER) asc limit 1"
       )
       .get();
     printItem(row);
   }
-};
+}
 
-run();
+run().catch((err) => {
+  console.error('[debug-db] failed:', err);
+  process.exit(1);
+});

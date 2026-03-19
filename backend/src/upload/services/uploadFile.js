@@ -39,7 +39,7 @@ async function uploadFile(ctx, { file }) {
 
   const dbTaxonomy = ctx.apiItemToDbClassification(pillar, topic);
 
-  ctx.db
+  await ctx.db
     .prepare(
       `
       INSERT INTO items
@@ -68,7 +68,7 @@ async function uploadFile(ctx, { file }) {
       driveUrl
     );
 
-  ctx.db
+  await ctx.db
     .prepare(
       `
       INSERT INTO classification_log (id, itemId, prompt, response, model, tokens)
@@ -77,7 +77,7 @@ async function uploadFile(ctx, { file }) {
     )
     .run(uuidv4(), id, prompt, JSON.stringify(result), 'gpt-4o-mini', tokens);
 
-  const item = ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+  const item = await ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   return ctx.itemRowToApi(item);
 }
 

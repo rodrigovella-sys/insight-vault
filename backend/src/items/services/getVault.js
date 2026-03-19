@@ -1,4 +1,4 @@
-function getVault(ctx, { pillar, status, search }) {
+async function getVault(ctx, { pillar, status, search }) {
   let sql = 'SELECT * FROM items WHERE 1=1';
   const params = [];
 
@@ -17,7 +17,8 @@ function getVault(ctx, { pillar, status, search }) {
   }
   sql += ' ORDER BY createdAt DESC';
 
-  return ctx.db.prepare(sql).all(...params).map(ctx.itemRowToApi);
+  const rows = await ctx.db.prepare(sql).all(...params);
+  return rows.map(ctx.itemRowToApi);
 }
 
 module.exports = { getVault };

@@ -1,5 +1,5 @@
-function confirmItem(ctx, { id }) {
-  const result = ctx.db
+async function confirmItem(ctx, { id }) {
+  const result = await ctx.db
     .prepare("UPDATE items SET status = 'confirmed', updatedAt = datetime('now') WHERE id = ?")
     .run(id);
 
@@ -9,7 +9,7 @@ function confirmItem(ctx, { id }) {
     throw err;
   }
 
-  const item = ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+  const item = await ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   return ctx.itemRowToApi(item);
 }
 

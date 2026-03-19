@@ -18,10 +18,6 @@ backend/backups/
 *.db-wal
 *.db-shm
 *.db-journal
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
-*.sqlite-journal
 
 # Frontend build output
 frontend/assets/

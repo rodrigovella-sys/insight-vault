@@ -1,16 +1,14 @@
 // backend/drive.js — Google Drive integration for Insight Vault v3.0
 // Auth:
-// - Preferred: Service Account JSON via GOOGLE_SERVICE_ACCOUNT_KEY
+// - OAuth2 via GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET/GOOGLE_OAUTH_REFRESH_TOKEN
 // Supports automatic subfolder creation per pillar/topic
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 
 let driveClient = null;
+let oauthClient = null;
 let FOLDER_ID = null;
-
-let rootFolderChecked = false;
-let rootFolderDriveId = null;
 
 // In-memory cache for folder IDs (avoids repeated API calls)
 const folderCache = {};
@@ -22,11 +20,9 @@ function escapeDriveQueryValue(value) {
 }
 
 function init() {
-
   // Reset any previous state (useful for restarts/tests)
   driveClient = null;
-  rootFolderChecked = false;
-  rootFolderDriveId = null;
+  oauthClient = null;
   for (const k of Object.keys(folderCache)) delete folderCache[k];
 
   FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
@@ -37,117 +33,33 @@ function init() {
     console.warn(`✓ enabled (Google Drive Folder) ID: ${FOLDER_ID}`);
   }
 
-  // Preferred: Service Account JSON in env
-  const serviceAccountRaw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (serviceAccountRaw) {
-    let serviceAccountKey;
-    try {
-      serviceAccountKey = JSON.parse(serviceAccountRaw);
-    } catch (err) {
-      console.warn(
-        '✗ disabled — GOOGLE_SERVICE_ACCOUNT_KEY is set but could not be parsed as JSON. ' +
-          'Ensure it is a single-line JSON string.'
-      );
-      return false;
-    }
-    if (!serviceAccountKey) {
-      console.warn(
-        '✗ disabled — GOOGLE_SERVICE_ACCOUNT_KEY is set but could not be parsed as JSON. Ensure it is a single-line JSON string.'
-      );
-      return false;
-    } else if (!serviceAccountKey.client_email || !serviceAccountKey.private_key) {
-      console.warn(
-        '✗ disabled — GOOGLE_SERVICE_ACCOUNT_KEY JSON is missing required fields (client_email/private_key).'
-      );
-      return false;
-    } else {
-      try {
-        // Normalize key formatting: common env/.env mistakes are having literal "\\n" instead of newlines.
-        if (typeof serviceAccountKey.private_key === 'string') {
-          let pk = serviceAccountKey.private_key;
-          pk = pk.replace(/\r\n/g, '\n');
-          pk = pk.replace(/\\n/g, '\n');
-          pk = pk.trim();
+  // OAuth2 (recommended)
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
 
-          // Sometimes values are double-quoted inside JSON/env.
-          if ((pk.startsWith('"') && pk.endsWith('"')) || (pk.startsWith("'") && pk.endsWith("'"))) {
-            pk = pk.slice(1, -1).trim();
-          }
-
-          // If key is base64-encoded PEM, decode it.
-          if (!pk.includes('BEGIN ') && /^[A-Za-z0-9+/=\s]+$/.test(pk) && pk.length > 256) {
-            try {
-              const decoded = Buffer.from(pk.replace(/\s+/g, ''), 'base64').toString('utf8');
-              if (decoded.includes('BEGIN ')) pk = decoded.trim();
-            } catch {
-              // ignore
-            }
-          }
-
-          if (pk.includes('BEGIN ENCRYPTED PRIVATE KEY')) {
-            console.warn(
-              '✗ disabled — Service Account private_key is encrypted. Generate a new JSON key (unencrypted) in Google Cloud.'
-            );
-            return false;
-          }
-
-          serviceAccountKey.private_key = pk;
-        }
-
-        const jwtClient = new google.auth.JWT({
-          email: serviceAccountKey.client_email,
-          key: serviceAccountKey.private_key,
-          scopes: ['https://www.googleapis.com/auth/drive'],
-        });
-        driveClient = google.drive({ version: 'v3', auth: jwtClient });
-        console.warn('✓ enabled  (Service Account) Service Account client initialized');
-        return true;
-      } catch (err) {
-        console.error('✗ disabled — Service Account init error:', err.message);
-        console.error(
-          'Hint: ensure GOOGLE_SERVICE_ACCOUNT_KEY.private_key is a PEM string with real newlines (not literal \\n).'
-        );
-        return false;
-      }
-    }
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.warn(
+      '✗ disabled — missing Google OAuth2 env vars. Set GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and GOOGLE_OAUTH_REFRESH_TOKEN to enable Google Drive integration.'
+    );
+    return false;
   }
 
-  console.warn('✗ disabled — GOOGLE_SERVICE_ACCOUNT_KEY not set. Set it to enable Google Drive integration.');
-  return false;
+  try {
+    oauthClient = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    oauthClient.setCredentials({ refresh_token: refreshToken });
+    driveClient = google.drive({ version: 'v3', auth: oauthClient });
+    console.warn('✓ enabled (OAuth2) Google Drive client initialized');
+    return true;
+  } catch (err) {
+    console.error('✗ disabled — OAuth2 init error:', err.message);
+    return false;
+  }
 }
 
 function isEnabled() {
   return driveClient !== null;
-}
-
-async function ensureRootFolderIsSharedDrive() {
-  if (rootFolderChecked) return;
-  rootFolderChecked = true;
-
-  try {
-    const meta = await driveClient.files.get({
-      fileId: FOLDER_ID,
-      fields: 'id, name, driveId',
-      supportsAllDrives: true,
-    });
-
-    rootFolderDriveId = meta?.data?.driveId || null;
-    if (!rootFolderDriveId) {
-      const folderName = meta?.data?.name ? `"${meta.data.name}"` : '(unknown name)';
-      const e = new Error(
-        'Google Drive is configured with a Service Account but the target folder is not in a Shared Drive. ' +
-          `Folder: ${folderName}. ` +
-          'Service Accounts do not have storage quota in My Drive. ' +
-          'Move/create the folder inside a Shared Drive, add the Service Account email as a member, and set GOOGLE_DRIVE_FOLDER_ID to that folder.'
-      );
-      e.status = 403;
-      throw e;
-    }
-  } catch (err) {
-    // If we already have a friendly error, bubble it up.
-    if (err && typeof err === 'object' && 'status' in err) throw err;
-    // Otherwise, don't block uploads here; the real call will throw a detailed gaxios error.
-  }
 }
 
 /**
@@ -202,9 +114,6 @@ async function getOrCreateFolder(parentId, name) {
  * @returns {Promise<{id: string, url: string}>}
  */
 async function upload(buffer, filename, mimetype, folderPath) {
-  // Catch the common Service Account quota scenario early with a clear error.
-  await ensureRootFolderIsSharedDrive();
-
   const parts = Array.isArray(folderPath)
     ? folderPath.filter(Boolean)
     : folderPath
@@ -237,17 +146,6 @@ async function upload(buffer, filename, mimetype, folderPath) {
       supportsAllDrives: true,
     });
   } catch (err) {
-    const msg = String(err?.message || err);
-    const reason = err?.errors?.[0]?.reason;
-    if (reason === 'storageQuotaExceeded' || msg.includes('storage quota')) {
-      const e = new Error(
-        'Google Drive upload failed: Service Accounts do not have storage quota. ' +
-          'Use a Shared Drive and add the Service Account email as a member, then set GOOGLE_DRIVE_FOLDER_ID to a folder inside that Shared Drive. ' +
-          'Alternatively, switch to OAuth delegation.'
-      );
-      e.status = 403;
-      throw e;
-    }
     throw err;
   }
 

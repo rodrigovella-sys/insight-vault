@@ -1,7 +1,7 @@
-function getPillars(ctx) {
+async function getPillars(ctx) {
   const db = ctx.db;
 
-  const rows = db
+  const rows = await db
     .prepare(
       `
       SELECT

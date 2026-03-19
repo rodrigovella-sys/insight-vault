@@ -6,21 +6,25 @@ const { createTopic } = require('./services/createTopic');
 function createTaxonomyController(ctx) {
   const router = express.Router();
 
-  router.get('/pillars', (_, res) => {
-    res.json(getPillars(ctx));
-  });
-
-  router.get('/topics', (req, res) => {
+  router.get('/pillars', async (_, res) => {
     try {
-      res.json(getTopics(ctx, { pillarId: req.query.pillar }));
+      res.json(await getPillars(ctx));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message });
     }
   });
 
-  router.post('/topics', (req, res) => {
+  router.get('/topics', async (req, res) => {
     try {
-      const topic = createTopic(ctx, {
+      res.json(await getTopics(ctx, { pillarId: req.query.pillar }));
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  });
+
+  router.post('/topics', async (req, res) => {
+    try {
+      const topic = await createTopic(ctx, {
         pillarId: req.body?.pillarId,
         name: req.body?.name,
       });

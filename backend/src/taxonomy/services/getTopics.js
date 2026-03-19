@@ -1,14 +1,14 @@
-function getTopics(ctx, { pillarId }) {
+async function getTopics(ctx, { pillarId }) {
   const db = ctx.db;
 
-  const pillar = db.prepare('SELECT id FROM pillars WHERE id = ?').get(pillarId);
+  const pillar = await db.prepare('SELECT id FROM pillars WHERE id = ?').get(pillarId);
   if (!pillar) {
     const err = new Error('Pillar not found');
     err.status = 404;
     throw err;
   }
 
-  return db
+  return await db
     .prepare(
       `
       SELECT id, name

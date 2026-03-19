@@ -7,7 +7,7 @@ const OpenAI = require('openai');
 const { google } = require('googleapis');
 const pdfParse = require('pdf-parse');
 
-const db = require('./database');
+const postgres = require('./dbpostgres');
 const { PILLARS } = require('./taxonomy');
 const drive = require('./drive');
 
@@ -53,7 +53,17 @@ async function extractText(buffer, mimetype) {
   }
 }
 
-function createAppContext() {
+async function createAppContext() {
+  // DB (Postgres-only)
+  const postgresEnabled = await postgres.init();
+  if (!postgresEnabled) {
+    const err = new Error('Postgres is not configured (missing DATABASE_URL)');
+    err.status = 500;
+    throw err;
+  }
+  const db = postgres.db;
+  console.warn('[DB] ✓ Postgres active');
+
   // Upload dir (local fallback)
   const UPLOAD_DIR = path.join(__dirname, 'uploads');
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -131,6 +141,8 @@ Text: ${String(text || '').slice(0, 8000)}
 
   return {
     db,
+    postgresEnabled,
+    dbType: 'postgres',
     PILLARS,
     drive,
     driveEnabled,

@@ -6,9 +6,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
 const XLSX = require('xlsx');
 const { v5: uuidv5 } = require('uuid');
-const db = require('../database');
+const postgres = require('../dbpostgres');
 const { PILLARS } = require('../taxonomy');
 
 const args = process.argv.slice(2);
@@ -275,19 +276,13 @@ const buildMetadataJson = ({ rowObj, sheetName, sourceRow, sourceFile }) => {
   });
 };
 
-if (options.truncate) {
-  try {
-    db.exec(`
-      DELETE FROM itemTopics
-      WHERE itemId IN (
-        SELECT id FROM items
-        WHERE json_extract(metadataJson, '$.sourceType') = 'xlsx'
-      )
-    `);
-  } catch (_) {
-    /* ignore */
+// Load environment variables from local files for development.
+// Priority: backend/.env.local -> backend/.env.development -> backend/.env
+for (const envPath of [path.join(__dirname, '..', '.env.local'), path.join(__dirname, '..', '.env.development'), path.join(__dirname, '..', '.env')]) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+    break;
   }
-  db.exec("DELETE FROM items WHERE json_extract(metadataJson, '$.sourceType') = 'xlsx'");
 }
 
 const workbook = XLSX.readFile(filePath, { cellDates: true });
@@ -304,7 +299,7 @@ if (!sheetsToImport.length) {
   process.exit(1);
 }
 
-const upsertItem = db.prepare(`
+const UPSERT_ITEM_SQL = `
   INSERT INTO items (
     id,
     filename,
@@ -393,57 +388,58 @@ const upsertItem = db.prepare(`
     @status
   )
   ON CONFLICT(id) DO UPDATE SET
-    filename            = excluded.filename,
-    original            = excluded.original,
-    mimetype            = excluded.mimetype,
-    size                = excluded.size,
-    text                = excluded.text,
-    summary             = excluded.summary,
-    tags                = excluded.tags,
+    filename             = excluded.filename,
+    original             = excluded.original,
+    mimetype             = excluded.mimetype,
+    size                 = excluded.size,
+    text                 = excluded.text,
+    summary              = excluded.summary,
+    tags                 = excluded.tags,
     metadataJson         = excluded.metadataJson,
-    skillValue          = excluded.skillValue,
-    keyQuote            = excluded.keyQuote,
-    useCase             = excluded.useCase,
-    mediaType           = excluded.mediaType,
-    youtubeUrl          = excluded.youtubeUrl,
-    timeRange           = excluded.timeRange,
-    impact              = excluded.impact,
-    contextText         = excluded.contextText,
-    linkStatus          = excluded.linkStatus,
-    relevance           = excluded.relevance,
-    exactTimestamp      = excluded.exactTimestamp,
-    seal                = excluded.seal,
-    timestampStatus     = excluded.timestampStatus,
-    valueRank           = excluded.valueRank,
-    mediaRank           = excluded.mediaRank,
-    curation            = excluded.curation,
-    playlist            = excluded.playlist,
-    thumbnail           = excluded.thumbnail,
-    videoId             = excluded.videoId,
-    macroPillar         = excluded.macroPillar,
-    subcategory         = excluded.subcategory,
-    sourceBook          = excluded.sourceBook,
-    author              = excluded.author,
+    skillValue           = excluded.skillValue,
+    keyQuote             = excluded.keyQuote,
+    useCase              = excluded.useCase,
+    mediaType            = excluded.mediaType,
+    youtubeUrl           = excluded.youtubeUrl,
+    timeRange            = excluded.timeRange,
+    impact               = excluded.impact,
+    contextText          = excluded.contextText,
+    linkStatus           = excluded.linkStatus,
+    relevance            = excluded.relevance,
+    exactTimestamp       = excluded.exactTimestamp,
+    seal                 = excluded.seal,
+    timestampStatus      = excluded.timestampStatus,
+    valueRank            = excluded.valueRank,
+    mediaRank            = excluded.mediaRank,
+    curation             = excluded.curation,
+    playlist             = excluded.playlist,
+    thumbnail            = excluded.thumbnail,
+    videoId              = excluded.videoId,
+    macroPillar          = excluded.macroPillar,
+    subcategory          = excluded.subcategory,
+    sourceBook           = excluded.sourceBook,
+    author               = excluded.author,
     kindleSectionChapter = excluded.kindleSectionChapter,
-    kindlePage          = excluded.kindlePage,
-    kindleLocation      = excluded.kindleLocation,
-    sourceArtifact      = excluded.sourceArtifact,
-    originalSubtheme    = excluded.originalSubtheme,
-    pillarId            = excluded.pillarId,
-    pillarName          = excluded.pillarName,
-    topicId             = excluded.topicId,
-    topicName           = excluded.topicName,
-    status              = excluded.status,
-    updatedAt           = datetime('now')
-`);
+    kindlePage           = excluded.kindlePage,
+    kindleLocation       = excluded.kindleLocation,
+    sourceArtifact       = excluded.sourceArtifact,
+    originalSubtheme     = excluded.originalSubtheme,
+    pillarId             = excluded.pillarId,
+    pillarName           = excluded.pillarName,
+    topicId              = excluded.topicId,
+    topicName            = excluded.topicName,
+    status               = excluded.status,
+    updatedAt            = now()
+`;
 
-const deleteItemTopics = db.prepare('DELETE FROM itemTopics WHERE itemId = ?');
-const insertItemTopic = db.prepare('INSERT OR IGNORE INTO itemTopics (itemId, topicId) VALUES (?, ?)');
+const DELETE_ITEM_TOPICS_SQL = 'DELETE FROM itemTopics WHERE itemId = ?';
+const INSERT_ITEM_TOPIC_SQL =
+  'INSERT INTO itemTopics (itemId, topicId) VALUES (?, ?) ON CONFLICT (itemId, topicId) DO NOTHING';
 
 let totalImported = 0;
 let totalLinkedTopics = 0;
 
-const importSheet = (sheetName) => {
+const importSheet = async (db, sheetName) => {
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '' });
 
@@ -457,7 +453,11 @@ const importSheet = (sheetName) => {
   const colKeys = headers.map((h) => headerToKey(h));
   const dataRows = rows.slice(headerIndex + 1);
 
-  const tx = db.transaction(() => {
+  const tx = db.transaction(async (txDb) => {
+    const upsertItem = txDb.prepare(UPSERT_ITEM_SQL);
+    const deleteItemTopics = txDb.prepare(DELETE_ITEM_TOPICS_SQL);
+    const insertItemTopic = txDb.prepare(INSERT_ITEM_TOPIC_SQL);
+
     for (let i = 0; i < dataRows.length; i++) {
       const r = dataRows[i];
       if (!Array.isArray(r)) continue;
@@ -484,7 +484,7 @@ const importSheet = (sheetName) => {
       const contextText = toTextOrNull(rowObj.contextText);
       const filename = `xlsx_${sheetName}_${sourceRow}`;
 
-      upsertItem.run({
+      await upsertItem.run({
         id,
         filename,
         original: keyQuote,
@@ -534,9 +534,9 @@ const importSheet = (sheetName) => {
         status: 'confirmed',
       });
 
-      deleteItemTopics.run(id);
+      await deleteItemTopics.run(id);
       for (const tid of topicIds) {
-        insertItemTopic.run(id, tid);
+        await insertItemTopic.run(id, tid);
         totalLinkedTopics++;
       }
 
@@ -544,20 +544,49 @@ const importSheet = (sheetName) => {
     }
   });
 
-  tx();
+  await tx();
 
   console.log(`Imported sheet: ${sheetName}`);
 };
 
-for (const sheetName of sheetsToImport) {
-  importSheet(sheetName);
+async function main() {
+  await postgres.init();
+  const db = postgres.db;
+
+  if (options.truncate) {
+    await db.exec(`
+      DELETE FROM itemTopics
+      WHERE itemId IN (
+        SELECT id FROM items
+        WHERE metadataJson is not null
+          AND metadataJson <> ''
+          AND (metadataJson::jsonb->>'sourceType') = 'xlsx'
+      )
+    `);
+
+    await db.exec(
+      "DELETE FROM items WHERE metadataJson is not null AND metadataJson <> '' AND (metadataJson::jsonb->>'sourceType') = 'xlsx'"
+    );
+  }
+
+  for (const sheetName of sheetsToImport) {
+    await importSheet(db, sheetName);
+  }
+
+  const totalInDb =
+    (await db
+      .prepare(
+        "SELECT COUNT(*) AS c FROM items WHERE metadataJson is not null AND metadataJson <> '' AND (metadataJson::jsonb->>'sourceType') = 'xlsx'"
+      )
+      .get())?.c || 0;
+
+  console.log('---');
+  console.log(`Imported entries (this run): ${totalImported}`);
+  console.log(`Linked topic rows (this run): ${totalLinkedTopics}`);
+  console.log(`Total XLSX items in DB: ${totalInDb}`);
 }
 
-const totalInDb = db
-  .prepare("SELECT COUNT(*) AS c FROM items WHERE json_extract(metadataJson, '$.sourceType') = 'xlsx'")
-  .get().c;
-
-console.log('---');
-console.log(`Imported entries (this run): ${totalImported}`);
-console.log(`Linked topic rows (this run): ${totalLinkedTopics}`);
-console.log(`Total XLSX items in DB: ${totalInDb}`);
+main().catch((err) => {
+  console.error('[import-xlsx] failed:', err);
+  process.exit(1);
+});

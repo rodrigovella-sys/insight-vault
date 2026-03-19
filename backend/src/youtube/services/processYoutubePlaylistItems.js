@@ -14,7 +14,7 @@ async function processYoutubePlaylistItems(ctx, { items }) {
       const dbTaxonomy = ctx.apiItemToDbClassification(pillar, topic);
 
       const id = uuidv4();
-      ctx.db
+      await ctx.db
         .prepare(
           `
           INSERT OR IGNORE INTO items
@@ -40,7 +40,7 @@ async function processYoutubePlaylistItems(ctx, { items }) {
           result.rationale
         );
 
-      ctx.db
+      await ctx.db
         .prepare(
           `
           INSERT INTO classification_log (id, itemId, prompt, response, model, tokens)

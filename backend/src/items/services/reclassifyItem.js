@@ -1,4 +1,4 @@
-function reclassifyItem(ctx, { id, pillarId, topicId }) {
+async function reclassifyItem(ctx, { id, pillarId, topicId }) {
   const pillar = ctx.PILLARS.find((p) => p.id === pillarId);
   if (!pillar) {
     const err = new Error('Invalid pillarId');
@@ -15,7 +15,7 @@ function reclassifyItem(ctx, { id, pillarId, topicId }) {
 
   const dbTaxonomy = ctx.apiItemToDbClassification(pillar, topic);
 
-  const result = ctx.db
+  const result = await ctx.db
     .prepare(
       `
       UPDATE items
@@ -32,7 +32,7 @@ function reclassifyItem(ctx, { id, pillarId, topicId }) {
     throw err;
   }
 
-  const item = ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+  const item = await ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
   return ctx.itemRowToApi(item);
 }
 

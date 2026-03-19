@@ -5,7 +5,7 @@
 
 ### Pré-requisitos
 
-- Node.js **20.x** (o backend declara `engines.node: 20.x` e usa `better-sqlite3`, que costuma falhar para instalar/compilar em Node 22 sem toolchain C++/SDK)
+- Node.js **20.x** (o backend declara `engines.node: 20.x`)
 
 Para checar sua versão:
 
@@ -17,14 +17,22 @@ node -v
 
 1) Configure variáveis de ambiente:
 
-- Crie `backend/.env.local` (recomendado) a partir de `backend/.env.local.example`.
-- Preencha pelo menos `OPENAI_API_KEY` (e `YOUTUBE_API_KEY` se for usar YouTube).
+- Crie `backend/.env.local` (recomendado) a partir de `backend/.env.example`.
+- Preencha pelo menos `DATABASE_URL` (Postgres). `OPENAI_API_KEY` é necessário para classificação por IA (e `YOUTUBE_API_KEY` se for usar YouTube).
 - Google Drive é opcional; sem isso, o backend salva arquivos localmente em `backend/uploads`.
 
 Para habilitar Google Drive, configure no `backend/.env.local`:
 
 - `GOOGLE_DRIVE_FOLDER_ID`
-- `GOOGLE_SERVICE_ACCOUNT_KEY` (JSON em uma única linha)
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GOOGLE_OAUTH_REFRESH_TOKEN`
+
+Para obter `GOOGLE_OAUTH_REFRESH_TOKEN` (uma vez só):
+
+- Garanta que a tela de consentimento OAuth está configurada no seu projeto Google Cloud.
+- Use o OAuth Playground (ou outro fluxo OAuth2) com o escopo `https://www.googleapis.com/auth/drive`.
+- Marque `Access type: offline` e force o consentimento (`prompt=consent`) para receber `refresh_token` na primeira autorização.
 
 Obs: o backend também aceita `backend/.env` como fallback, mas o padrão local é usar `.env.local` (que não deve ir para o repositório).
 
@@ -48,7 +56,6 @@ Backend sobe em `http://localhost:3000` (ou `PORT`).
 	- `items` (`/vault`, `/items/:id`, `/items/:id/file`, confirm/reclassify)
 	- `upload` (`/upload`)
 	- `youtube` (`/youtube`, `/youtube/playlist`)
-	- `database` (`/database/backup`, `/database/restore`, `/database/recover`)
 - `backend/src/*/services/*`: lógica por endpoint (ex.: `getVault`, `uploadFile`, etc.).
 
 #### Scripts de planilha (carga inicial)
@@ -82,4 +89,4 @@ Obs: quando o frontend estiver em `localhost`, ele chama automaticamente `http:/
 
 ## Troubleshooting
 
-- Se `npm install` falhar com `better-sqlite3` / `node-gyp` no Windows, normalmente é por estar usando Node 22+ ou por faltar toolchain C++/Windows SDK. A forma mais simples é usar Node **20.x**.
+- Se o backend falhar ao subir, valide primeiro se `DATABASE_URL` está configurado no `backend/.env.local`.
