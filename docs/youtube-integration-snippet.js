@@ -46,7 +46,11 @@ app.post('/youtube', async (req, res) => {
     // 3. Sem chave OpenAI — retorna pendente
     if (!process.env.OPENAI_API_KEY) {
       db.prepare("UPDATE items SET status='needs_api_key' WHERE id=?").run(id);
-      return res.status(202).json({ id, status: 'needs_api_key', message: 'Set OPENAI_API_KEY to enable classification.' });
+      return res.status(202).json({
+        id,
+        status: 'needs_api_key',
+        message: 'Set OPENAI_API_KEY to enable classification.'
+      });
     }
 
     // 4. Classificar com IA
@@ -59,10 +63,15 @@ app.post('/youtube', async (req, res) => {
         status='classified', updatedAt=datetime('now')
       WHERE id=?
     `).run(
-      result.summary, JSON.stringify(result.tags),
-      result.pillarId, result.pillarName,
-      result.topicId, result.topicName,
-      result.confidence, result.rationale, id
+      result.summary,
+      JSON.stringify(result.tags),
+      result.pillarId,
+      result.pillarName,
+      result.topicId,
+      result.topicName,
+      result.confidence,
+      result.rationale,
+      id
     );
 
     // 5. Audit log

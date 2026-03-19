@@ -4,12 +4,12 @@ const express = require('express');
 const cors = require('cors');
 
 const { createAppContext } = require('./context');
-const { createSystemController } = require('./modules/system/controller');
-const { createTaxonomyController } = require('./modules/taxonomy/controller');
-const { createItemsController } = require('./modules/items/controller');
-const { createUploadController } = require('./modules/upload/controller');
-const { createYoutubeController } = require('./modules/youtube/controller');
-const { createDatabaseController } = require('./modules/database/controller');
+const { createSystemController } = require('./src/system/controller');
+const { createTaxonomyController } = require('./src/taxonomy/controller');
+const { createItemsController } = require('./src/items/controller');
+const { createUploadController } = require('./src/upload/controller');
+const { createYoutubeController } = require('./src/youtube/controller');
+const { createDatabaseController } = require('./src/database/controller');
 
 const app = express();
 app.use(express.json());

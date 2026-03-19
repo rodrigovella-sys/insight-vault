@@ -4,7 +4,17 @@
   "private": true,
   "description": "Insight Vault — static frontend (HTML/CSS/JS)",
   "scripts": {
-    "dev": "npx --yes serve . -l 5173",
-    "start": "npx --yes serve . -l 5173"
+    "build:css": "sass src/styles:assets/css --no-source-map",
+    "build:js": "tsc -p tsconfig.json",
+    "build": "npm run build:css && npm run build:js",
+    "watch:css": "sass src/styles:assets/css --no-source-map --watch",
+    "watch:js": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "start": "npx --yes serve . -l 5173",
+    "dev": "npm run build && concurrently -n css,js,serve -c green,cyan,magenta \"npm run watch:css\" \"npm run watch:js\" \"npm run start\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "sass": "^1.77.0",
+    "typescript": "^5.5.0"
   }
 }

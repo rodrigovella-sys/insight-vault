@@ -4,6 +4,7 @@
   "description": "AI-native personal knowledge vault - Google Drive Edition",
   "main": "server.js",
   "scripts": {
+    "build": "node --check server.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "inspect:xlsx": "node data/inspect-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\"",
@@ -18,13 +19,13 @@
     "openai": "^4.47.1",
     "uuid": "^9.0.1",
     "axios": "^1.7.2",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.8.0",
     "pdf-parse": "^1.1.1",
-    "googleapis": "^134.0.0",
-    "xlsx": "^0.18.5"
+    "googleapis": "^134.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "xlsx": "^0.18.5"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -35,14 +35,14 @@ Backend sobe em `http://localhost:3000` (ou `PORT`).
 
 - `backend/server.js`: somente boot do Express + montagem dos endpoints.
 - `backend/context.js`: dependências compartilhadas (db, drive, OpenAI, YouTube) + helpers.
-- `backend/modules/*/controller.js`: controllers por módulo (endpoints):
+- `backend/src/*/controller.js`: controllers por módulo (endpoints):
 	- `system` (`/health`)
 	- `taxonomy` (`/pillars`, `/topics`)
 	- `items` (`/vault`, `/items/:id`, `/items/:id/file`, confirm/reclassify)
 	- `upload` (`/upload`)
 	- `youtube` (`/youtube`, `/youtube/playlist`)
 	- `database` (`/database/backup`, `/database/restore`, `/database/recover`)
-- `backend/modules/*/services/*`: lógica por endpoint (ex.: `getVault`, `uploadFile`, etc.).
+- `backend/src/*/services/*`: lógica por endpoint (ex.: `getVault`, `uploadFile`, etc.).
 
 #### Scripts de planilha (carga inicial)
 
