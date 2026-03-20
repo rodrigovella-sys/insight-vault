@@ -1,4 +1,4 @@
-// backend/drive.js — Google Drive integration for Insight Vault v3.0
+// backend/google/googledrive.js — Google Drive integration for Insight Vault v3.0
 // Auth:
 // - OAuth2 via GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET/GOOGLE_OAUTH_REFRESH_TOKEN
 // Supports automatic subfolder creation per pillar/topic
@@ -60,6 +60,31 @@ function init() {
 
 function isEnabled() {
   return driveClient !== null;
+}
+
+/**
+ * Validate that Google Drive is usable with the current credentials.
+ * Throws an Error if the configured folder cannot be accessed.
+ */
+async function probe() {
+  if (!driveClient) {
+    throw new Error('Google Drive is not initialized');
+  }
+  if (!FOLDER_ID) {
+    throw new Error('GOOGLE_DRIVE_FOLDER_ID is not set');
+  }
+
+  try {
+    // Check folder exists and is accessible.
+    await driveClient.files.get({
+      fileId: FOLDER_ID,
+      fields: 'id',
+      supportsAllDrives: true,
+    });
+  } catch (err) {
+    const msg = err?.message || 'probe failed';
+    throw new Error(`Google Drive probe failed: ${msg}`);
+  }
 }
 
 /**
@@ -131,23 +156,18 @@ async function upload(buffer, filename, mimetype, folderPath) {
   readable.push(buffer);
   readable.push(null);
 
-  let res;
-  try {
-    res = await driveClient.files.create({
-      requestBody: {
-        name: filename,
-        parents: [targetFolderId],
-      },
-      media: {
-        mimeType: mimetype,
-        body: readable,
-      },
-      fields: 'id, webViewLink',
-      supportsAllDrives: true,
-    });
-  } catch (err) {
-    throw err;
-  }
+  const res = await driveClient.files.create({
+    requestBody: {
+      name: filename,
+      parents: [targetFolderId],
+    },
+    media: {
+      mimeType: mimetype,
+      body: readable,
+    },
+    fields: 'id, webViewLink',
+    supportsAllDrives: true,
+  });
 
   return { id: res.data.id, url: res.data.webViewLink };
 }
@@ -170,4 +190,4 @@ async function remove(fileId) {
   await driveClient.files.delete({ fileId, supportsAllDrives: true });
 }
 
-module.exports = { init, isEnabled, upload, download, remove };
+module.exports = { init, isEnabled, probe, upload, download, remove };

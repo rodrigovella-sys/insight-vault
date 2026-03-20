@@ -7,6 +7,8 @@ type Item = {
   status: string;
   original?: string;
   filename?: string;
+  driveFileId?: string;
+  driveUrl?: string;
   summary?: string;
   tags?: string[];
   pillarId?: string;
@@ -293,7 +295,14 @@ async function loadVault(): Promise<void> {
 
     grid.innerHTML = items
       .map(
-        (item) => `
+        (item) => {
+          const fileHref = item.driveUrl || `${API_BASE}/items/${encodeURIComponent(item.id)}/file`;
+          const hasFileLink = Boolean(item.driveUrl || item.driveFileId || item.filename);
+          const filePill = hasFileLink
+            ? `<a class="vault-pill" href="${fileHref}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Arquivo</a>`
+            : "";
+
+          return `
         <div class="vault-item">
           <div class="vault-item-header">
             <div style="display:flex;align-items:flex-start;gap:8px;flex:1;">
@@ -303,6 +312,7 @@ async function loadVault(): Promise<void> {
                 <div class="vault-item-meta" style="margin-top:4px;">
                   <span class="vault-pill">${item.pillarId || "?"} – ${item.pillarName || "Unclassified"}</span>
                   ${item.topicName ? `<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4;">${item.topicName}</span>` : ""}
+                  ${filePill}
                 </div>
               </div>
             </div>
@@ -313,6 +323,7 @@ async function loadVault(): Promise<void> {
             .map((t) => `<span class="tag">${t}</span>`)
             .join("")}</div>` : ""}
         </div>`
+        }
       )
       .join("");
   } catch (e) {

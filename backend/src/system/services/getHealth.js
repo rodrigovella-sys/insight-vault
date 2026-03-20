@@ -7,7 +7,7 @@ async function getHealth(ctx) {
     db: ctx.dbType || 'postgres',
     drive: driveEnabled ? 'enabled' : 'disabled',
     driveEnabled,
-    storage: driveEnabled ? 'google-drive' : 'local',
+    storage: driveEnabled ? (ctx.storageKind || 'google-drive') : 'local',
     openaiEnabled: Boolean(ctx.openaiEnabled),
     youtubeEnabled: Boolean(ctx.youtubeEnabled),
     items: countRow?.n || 0,

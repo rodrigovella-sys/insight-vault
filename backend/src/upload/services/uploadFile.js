@@ -30,9 +30,19 @@ async function uploadFile(ctx, { file }) {
   const topicFolder = `${topic.id} - ${topic.name}`;
 
   if (ctx.driveEnabled) {
-    const uploaded = await ctx.drive.upload(buffer, filename, mimetype, [pillarFolder, topicFolder]);
-    driveFileId = uploaded.id;
-    driveUrl = uploaded.url;
+    try {
+      const uploaded = await ctx.drive.upload(buffer, filename, mimetype, [pillarFolder, topicFolder]);
+      driveFileId = uploaded.id;
+      driveUrl = uploaded.url;
+    } catch (errPrimary) {
+      if (ctx.driveSecondaryEnabled && ctx.driveSecondary) {
+        const uploaded = await ctx.driveSecondary.upload(buffer, filename, mimetype, [pillarFolder, topicFolder]);
+        driveFileId = uploaded.id;
+        driveUrl = uploaded.url;
+      } else {
+        throw errPrimary;
+      }
+    }
   } else {
     fs.writeFileSync(path.join(ctx.UPLOAD_DIR, filename), buffer);
   }

@@ -5,6 +5,8 @@ import { getPillars, getTopics } from "../Taxonomy/taxonomyApi.js";
 type Item = {
   id: string;
   filename?: string;
+  driveFileId?: string;
+  driveUrl?: string;
   original?: string;
   summary?: string;
   contextText?: string;
@@ -225,9 +227,15 @@ export async function loadVault(): Promise<void> {
         const pillarName = item.pillarName || "Sem classe";
         const topicName = item.topicName || "";
 
+        const fileHref = item.driveUrl || `${API_BASE}/items/${encodeURIComponent(item.id)}/file`;
+        const hasFileLink = Boolean(item.driveUrl || item.driveFileId || item.filename);
+        const filePill = hasFileLink
+          ? `<a class="vault-pill" href="${fileHref}" target="_blank" rel="noopener noreferrer" style="text-decoration:none" onclick="event.stopPropagation()">Arquivo</a>`
+          : "";
+
         const itemJson = JSON.stringify(item).replace(/'/g, "\\'");
 
-        return `<div class="vault-item" onclick='openEditModal(${itemJson})'><div class="vault-item-header"><div style="display:flex;align-items:flex-start;gap:8px;flex:1"><div class="status-dot-item dot-${item.status}" style="margin-top:5px"></div><div><h4>${original}</h4><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="vault-pill">${pillarId} – ${pillarName}</span>${topicName ? `<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4">${topicName}</span>` : ""}</div></div></div><span class="edit-icon">✏️</span></div><div class="vault-item-summary">${summary}</div></div>`;
+        return `<div class="vault-item" onclick='openEditModal(${itemJson})'><div class="vault-item-header"><div style="display:flex;align-items:flex-start;gap:8px;flex:1"><div class="status-dot-item dot-${item.status}" style="margin-top:5px"></div><div><h4>${original}</h4><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="vault-pill">${pillarId} – ${pillarName}</span>${topicName ? `<span class="vault-pill" style="background:rgba(0,212,180,.1);border-color:rgba(0,212,180,.2);color:#6ee7d4">${topicName}</span>` : ""}${filePill}</div></div></div><span class="edit-icon">✏️</span></div><div class="vault-item-summary">${summary}</div></div>`;
       })
       .join("");
   } catch (e) {

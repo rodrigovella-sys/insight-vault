@@ -10,13 +10,31 @@ async function getItemFile(ctx, { id }) {
   }
 
   if (item.driveFileId && ctx.driveEnabled) {
-    const buffer = await ctx.drive.download(item.driveFileId);
-    return {
-      kind: 'buffer',
-      buffer,
-      mimetype: item.mimetype || 'application/octet-stream',
-      original: item.original,
-    };
+    try {
+      const buffer = await ctx.drive.download(item.driveFileId);
+      return {
+        kind: 'buffer',
+        buffer,
+        mimetype: item.mimetype || 'application/octet-stream',
+        original: item.original,
+      };
+    } catch (errPrimary) {
+      if (ctx.driveSecondaryEnabled && ctx.driveSecondary) {
+        try {
+          const buffer = await ctx.driveSecondary.download(item.driveFileId);
+          return {
+            kind: 'buffer',
+            buffer,
+            mimetype: item.mimetype || 'application/octet-stream',
+            original: item.original,
+          };
+        } catch {
+          // fall through to local storage / 404
+        }
+      }
+      // If Drive was enabled but the file isn't there (or provider mismatch),
+      // continue trying local storage before returning 404.
+    }
   }
 
   const localPath = path.join(ctx.UPLOAD_DIR, item.filename);

@@ -9,7 +9,8 @@ const pdfParse = require('pdf-parse');
 
 const postgres = require('./dbpostgres');
 const { PILLARS } = require('./taxonomy');
-const drive = require('./drive');
+const googleDrive = require('./google/googledrive');
+const oneDrive = require('./microsoft/onedrive');
 
 function itemRowToApi(row) {
   if (!row) return row;
@@ -69,8 +70,54 @@ async function createAppContext() {
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
   // Drive
-  const driveEnabled = drive.init();
-  console.warn(`[Drive] ${driveEnabled ? '✓ enabled (Google Drive)' : '✗ disabled — using local storage'}`);
+  let drive = null;
+  let driveEnabled = false;
+  let driveSecondary = null;
+  let driveSecondaryEnabled = false;
+  let storageKind = 'local';
+
+  // Preference order: Google Drive (primary) -> OneDrive (secondary) -> local.
+  // We still initialize/probe both so downloads can fall back for older items.
+  const googleDriveEnabled = googleDrive.init();
+  if (googleDriveEnabled) {
+    try {
+      if (typeof googleDrive.probe === 'function') await googleDrive.probe();
+      drive = googleDrive;
+      driveEnabled = true;
+      storageKind = 'google-drive';
+      console.warn('[Drive] ✓ enabled (Google Drive)');
+    } catch (err) {
+      console.warn(`[Drive] ✗ Google Drive disabled — ${err.message}`);
+    }
+  }
+
+  const oneDriveEnabled = oneDrive.init();
+  if (oneDriveEnabled) {
+    try {
+      await oneDrive.probe();
+      if (!driveEnabled) {
+        drive = oneDrive;
+        driveEnabled = true;
+        storageKind = 'one-drive';
+        console.warn('[Drive] ✓ enabled (OneDrive)');
+      } else {
+        driveSecondary = oneDrive;
+        driveSecondaryEnabled = true;
+        console.warn('[Drive] ✓ enabled (OneDrive as secondary)');
+      }
+    } catch (err) {
+      console.warn(`[Drive] ✗ OneDrive disabled — ${err.message}`);
+    }
+  }
+
+  if (!driveEnabled) {
+    // Keep a reference to googleDrive for callers that expect ctx.drive to exist,
+    // but explicitly mark it disabled and use local storage.
+    drive = googleDrive;
+    driveEnabled = false;
+    storageKind = 'local';
+    console.warn('[Drive] ✗ disabled — using local storage');
+  }
 
   // OpenAI
   const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -146,6 +193,9 @@ Text: ${String(text || '').slice(0, 8000)}
     PILLARS,
     drive,
     driveEnabled,
+    driveSecondary,
+    driveSecondaryEnabled,
+    storageKind,
     openaiEnabled,
     youtube,
     youtubeEnabled,

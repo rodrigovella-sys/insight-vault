@@ -48,8 +48,8 @@ async function main() {
   app.listen(PORT, () => {
     console.log(`[Insight Vault v3.0] listening on port ${PORT}`);
     console.log(`[Drive] ${ctx.driveEnabled
-      ? '✓ Google Drive storage active'
-      : '✗ Local storage active (set GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN + GOOGLE_DRIVE_FOLDER_ID to enable Drive)'
+      ? `✓ ${ctx.storageKind === 'one-drive' ? 'OneDrive' : 'Google Drive'} storage active`
+      : '✗ Local storage active (set OneDrive or Google Drive env vars + folder id to enable cloud storage)'
     }`);
     console.log(`[DB] ✓ Postgres active`);
   });

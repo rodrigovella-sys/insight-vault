@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "inspect:xlsx": "node data/inspect-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\"",
     "import:xlsx": "node data/import-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\" --truncate",
-    "debug:db": "node data/debug-db.js --counts --sample-xlsx"
+    "debug:db": "node data/debug-db.js --counts --sample-xlsx",
+    "auth:onedrive": "node data/get-onedrive-refresh-token.js"
   },
   "dependencies": {
     "axios": "^1.7.2",
