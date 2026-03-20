@@ -1,6 +1,7 @@
 import { API_BASE } from "./config.js";
-import { setStatus, toast } from "./ui.js";
+import { setStatus, toast, showBlocking, hideBlocking } from "./ui.js";
 import { renderTaxonomy } from "./Taxonomy/taxonomy.js";
+import { getTopics } from "./Taxonomy/taxonomyApi.js";
 
 type Item = {
   id: string;
@@ -9,6 +10,7 @@ type Item = {
   filename?: string;
   driveFileId?: string;
   driveUrl?: string;
+  youtubeUrl?: string;
   summary?: string;
   tags?: string[];
   pillarId?: string;
@@ -22,6 +24,41 @@ type Item = {
 let currentItemId: string | null = null;
 let currentItemIdYt: string | null = null;
 
+async function openItemFile(id: string): Promise<void> {
+  let timeoutHandle: number | undefined;
+  const canAbort = typeof (window as any).AbortController !== "undefined";
+  const controller = canAbort ? new AbortController() : null;
+  try {
+    showBlocking("Abrindo…");
+    timeoutHandle = window.setTimeout(() => controller?.abort(), 15000);
+    const res = await fetch(`${API_BASE}/items/${encodeURIComponent(id)}/file?resolve=1`, {
+      signal: controller?.signal,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({} as any));
+    const url = (data as any)?.url as string | undefined;
+    if (!res.ok || !url) {
+      toast("Arquivo não encontrado");
+      return;
+    }
+
+    const finalUrl = /^https?:\/\//i.test(url)
+      ? url
+      : `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+
+    window.open(finalUrl, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    if ((e as any)?.name === "AbortError") {
+      toast("Tempo esgotado ao abrir arquivo");
+    } else {
+      toast("Arquivo não encontrado");
+    }
+  } finally {
+    if (timeoutHandle) window.clearTimeout(timeoutHandle);
+    hideBlocking();
+  }
+}
+
 function switchTab(id: string, btn: HTMLElement): void {
   document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
   document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
@@ -29,6 +66,45 @@ function switchTab(id: string, btn: HTMLElement): void {
   btn.classList.add("active");
   if (id === "vault") void loadVault();
   if (id === "taxonomy") void renderTaxonomy();
+}
+
+async function updateVaultTopicsDropdown(): Promise<void> {
+  const pid = (document.getElementById("vaultPillar") as HTMLSelectElement | null)?.value || "";
+  const tSel = document.getElementById("vaultTopic") as HTMLSelectElement | null;
+  if (!tSel) return;
+
+  const previous = tSel.value;
+
+  if (!pid) {
+    tSel.innerHTML = '<option value="">All Topics</option>';
+    tSel.value = "";
+    tSel.disabled = true;
+    return;
+  }
+
+  tSel.disabled = false;
+  tSel.innerHTML = '<option value="">…</option>';
+
+  try {
+    const topics = await getTopics(pid);
+    tSel.innerHTML = '<option value="">All Topics</option>';
+
+    topics.forEach((t) => {
+      const o = document.createElement("option");
+      o.value = t.id;
+      o.textContent = t.name;
+      tSel.appendChild(o);
+    });
+
+    if (previous && topics.some((t) => t.id === previous)) {
+      tSel.value = previous;
+    } else {
+      tSel.value = "";
+    }
+  } catch {
+    tSel.innerHTML = '<option value="">Error loading topics</option>';
+    tSel.value = "";
+  }
 }
 
 async function checkHealth(): Promise<void> {
@@ -76,6 +152,7 @@ async function handleFile(file: File): Promise<void> {
   formData.append("file", file);
 
   try {
+    showBlocking("Processando…");
     const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
     const data = await res.json().catch(() => ({}));
     document.getElementById("spinner")?.classList.remove("visible");
@@ -84,6 +161,8 @@ async function handleFile(file: File): Promise<void> {
   } catch (err) {
     document.getElementById("spinner")?.classList.remove("visible");
     showError((err as Error).message, file.name);
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -143,6 +222,7 @@ function showError(message: string, filename: string): void {
 async function confirmClassification(): Promise<void> {
   if (!currentItemId) return;
   try {
+    showBlocking("Confirmando…");
     const res = await fetch(`${API_BASE}/items/${currentItemId}/confirm`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -161,6 +241,8 @@ async function confirmClassification(): Promise<void> {
     }
   } catch (e) {
     toast("Error: " + (e as Error).message);
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -181,6 +263,7 @@ async function submitYouTube(): Promise<void> {
   document.getElementById("resultCardYt")?.classList.remove("visible", "success", "error");
 
   try {
+    showBlocking("Classificando…");
     const res = await fetch(`${API_BASE}/youtube`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -197,6 +280,8 @@ async function submitYouTube(): Promise<void> {
     const summary = document.getElementById("resultSummaryYt");
     if (title) title.textContent = "Erro";
     if (summary) summary.textContent = (err as Error).message;
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -234,6 +319,7 @@ function showResultYt(item: Item, url: string): void {
 async function confirmClassificationYt(): Promise<void> {
   if (!currentItemIdYt) return;
   try {
+    showBlocking("Confirmando…");
     const res = await fetch(`${API_BASE}/items/${currentItemIdYt}/confirm`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -252,6 +338,8 @@ async function confirmClassificationYt(): Promise<void> {
     }
   } catch (e) {
     toast("Erro: " + (e as Error).message);
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -263,27 +351,148 @@ function resetYouTube(): void {
 }
 
 // Vault
+let vaultPage = 1;
+let vaultPageSize = 20;
+let vaultLastQueryKey = "";
+let vaultLastTotal = 0;
+let vaultLastMaxPage = 1;
+
+function syncVaultPageSizeSelects(): void {
+  const top = document.getElementById("vaultPageSizeTop") as HTMLSelectElement | null;
+  const bottom = document.getElementById("vaultPageSizeBottom") as HTMLSelectElement | null;
+  const val = String(vaultPageSize);
+  if (top && top.value !== val) top.value = val;
+  if (bottom && bottom.value !== val) bottom.value = val;
+}
+
+function updateVaultPagerUI(total: number): void {
+  const maxPage = Math.max(1, Math.ceil(total / Math.max(1, vaultPageSize)));
+  vaultLastMaxPage = maxPage;
+  const safePage = Math.max(1, Math.min(maxPage, vaultPage));
+  vaultPage = safePage;
+
+  const info = `Página ${safePage}/${maxPage} · ${total} itens`;
+  const infoTop = document.getElementById("vaultPageInfoTop");
+  const infoBottom = document.getElementById("vaultPageInfoBottom");
+  if (infoTop) infoTop.textContent = info;
+  if (infoBottom) infoBottom.textContent = info;
+
+  const prevDisabled = safePage <= 1;
+  const nextDisabled = safePage >= maxPage;
+
+  const pageInputTop = document.getElementById("vaultPageInputTop") as HTMLInputElement | null;
+  const pageInputBottom = document.getElementById("vaultPageInputBottom") as HTMLInputElement | null;
+  if (pageInputTop) {
+    pageInputTop.value = String(safePage);
+    pageInputTop.max = String(maxPage);
+  }
+  if (pageInputBottom) {
+    pageInputBottom.value = String(safePage);
+    pageInputBottom.max = String(maxPage);
+  }
+
+  const firstDisabled = safePage <= 1;
+  const lastDisabled = safePage >= maxPage;
+  const prevTop = document.getElementById("vaultPrevTop") as HTMLButtonElement | null;
+  const prevBottom = document.getElementById("vaultPrevBottom") as HTMLButtonElement | null;
+  const nextTop = document.getElementById("vaultNextTop") as HTMLButtonElement | null;
+  const nextBottom = document.getElementById("vaultNextBottom") as HTMLButtonElement | null;
+  const firstTop = document.getElementById("vaultFirstTop") as HTMLButtonElement | null;
+  const firstBottom = document.getElementById("vaultFirstBottom") as HTMLButtonElement | null;
+  const lastTop = document.getElementById("vaultLastTop") as HTMLButtonElement | null;
+  const lastBottom = document.getElementById("vaultLastBottom") as HTMLButtonElement | null;
+  if (firstTop) firstTop.disabled = firstDisabled;
+  if (firstBottom) firstBottom.disabled = firstDisabled;
+  if (prevTop) prevTop.disabled = prevDisabled;
+  if (prevBottom) prevBottom.disabled = prevDisabled;
+  if (nextTop) nextTop.disabled = nextDisabled;
+  if (nextBottom) nextBottom.disabled = nextDisabled;
+  if (lastTop) lastTop.disabled = lastDisabled;
+  if (lastBottom) lastBottom.disabled = lastDisabled;
+}
+
+function vaultFirstPage(): void {
+  vaultPage = 1;
+  void loadVault();
+}
+
+function vaultLastPage(): void {
+  const maxPage = Math.max(1, vaultLastMaxPage || Math.ceil(vaultLastTotal / Math.max(1, vaultPageSize)));
+  vaultPage = maxPage;
+  void loadVault();
+}
+
+function vaultGoToPage(value: string | number): void {
+  const n = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n)) return;
+  const maxPage = Math.max(1, vaultLastMaxPage || Math.ceil(vaultLastTotal / Math.max(1, vaultPageSize)));
+  vaultPage = Math.max(1, Math.min(maxPage, n));
+  void loadVault();
+}
+
+function vaultPrevPage(): void {
+  if (vaultPage <= 1) return;
+  vaultPage -= 1;
+  void loadVault();
+}
+
+function vaultNextPage(): void {
+  const maxPage = Math.max(1, vaultLastMaxPage || Math.ceil(vaultLastTotal / Math.max(1, vaultPageSize)));
+  if (vaultPage >= maxPage) return;
+  vaultPage += 1;
+  void loadVault();
+}
+
+function vaultSetPageSize(value: string | number): void {
+  const n = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n) || n <= 0) return;
+
+  vaultPageSize = Math.max(1, Math.min(200, n));
+  vaultPage = 1;
+  syncVaultPageSizeSelects();
+  void loadVault();
+}
+
 async function loadVault(): Promise<void> {
-  const search = ((document.getElementById("vaultSearch") as HTMLInputElement | null)?.value || "").toLowerCase();
+  const searchRaw = ((document.getElementById("vaultSearch") as HTMLInputElement | null)?.value || "").trim();
   const pillar = (document.getElementById("vaultPillar") as HTMLSelectElement | null)?.value || "";
+  const topicId = (document.getElementById("vaultTopic") as HTMLSelectElement | null)?.value || "";
   const status = (document.getElementById("vaultStatus") as HTMLSelectElement | null)?.value || "";
 
-  let url = `${API_BASE}/vault?limit=100`;
-  if (pillar) url += `&pillar=${pillar}`;
-  if (status) url += `&status=${status}`;
+  const queryKey = JSON.stringify({ searchRaw, pillar, topicId, status });
+  if (queryKey !== vaultLastQueryKey) {
+    vaultLastQueryKey = queryKey;
+    vaultPage = 1;
+  }
 
+  syncVaultPageSizeSelects();
+
+  const offset = (Math.max(1, vaultPage) - 1) * Math.max(1, vaultPageSize);
+
+  let url = `${API_BASE}/vault?limit=${encodeURIComponent(String(vaultPageSize))}&offset=${encodeURIComponent(String(offset))}`;
+  if (pillar) url += `&pillar=${encodeURIComponent(pillar)}`;
+  if (topicId) url += `&topicId=${encodeURIComponent(topicId)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+  if (searchRaw) url += `&search=${encodeURIComponent(searchRaw)}`;
+
+  showBlocking();
   try {
     const res = await fetch(url);
     const data = await res.json().catch(() => ({}));
-    let items: Item[] = Array.isArray(data) ? (data as Item[]) : ((data as any).items || []);
-    if (search) {
-      items = items.filter(
-        (i) =>
-          (i.original || "").toLowerCase().includes(search) ||
-          (i.summary || "").toLowerCase().includes(search) ||
-          (i.pillarName || "").toLowerCase().includes(search)
-      );
+    const isArray = Array.isArray(data);
+    const items: Item[] = isArray ? (data as Item[]) : (((data as any).items as Item[]) || []);
+    const total = isArray ? items.length : (Number((data as any).total) || 0);
+
+    vaultLastTotal = total;
+
+    const maxPage = Math.max(1, Math.ceil(total / Math.max(1, vaultPageSize)));
+    if (total > 0 && vaultPage > maxPage) {
+      vaultPage = maxPage;
+      await loadVault();
+      return;
     }
+
+    updateVaultPagerUI(total);
 
     const grid = document.getElementById("vaultGrid");
     if (!grid) return;
@@ -296,10 +505,9 @@ async function loadVault(): Promise<void> {
     grid.innerHTML = items
       .map(
         (item) => {
-          const fileHref = item.driveUrl || `${API_BASE}/items/${encodeURIComponent(item.id)}/file`;
-          const hasFileLink = Boolean(item.driveUrl || item.driveFileId || item.filename);
+          const hasFileLink = Boolean(item.driveUrl || item.driveFileId || item.filename || item.youtubeUrl);
           const filePill = hasFileLink
-            ? `<a class="vault-pill" href="${fileHref}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Arquivo</a>`
+            ? `<a class="vault-pill" href="#" rel="noopener noreferrer" style="text-decoration:none" onclick="openItemFile('${item.id}'); return false;">Arquivo</a>`
             : "";
 
           return `
@@ -331,6 +539,8 @@ async function loadVault(): Promise<void> {
     if (grid) {
       grid.innerHTML = `<div class="empty-state"><p style="color:var(--danger);">Erro: ${(e as Error).message}</p></div>`;
     }
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -339,13 +549,32 @@ async function loadVault(): Promise<void> {
 // Expose for inline onclick handlers
 const w = window as any;
 w.switchTab = switchTab;
+w.updateVaultTopicsDropdown = updateVaultTopicsDropdown;
 w.confirmClassification = confirmClassification;
 w.resetUpload = resetUpload;
 w.submitYouTube = submitYouTube;
 w.confirmClassificationYt = confirmClassificationYt;
 w.resetYouTube = resetYouTube;
 w.loadVault = loadVault;
+w.vaultFirstPage = vaultFirstPage;
+w.vaultLastPage = vaultLastPage;
+w.vaultGoToPage = vaultGoToPage;
+w.vaultPrevPage = vaultPrevPage;
+w.vaultNextPage = vaultNextPage;
+w.vaultSetPageSize = vaultSetPageSize;
+w.openItemFile = openItemFile;
 
 bindUpload();
-void checkHealth();
-void renderTaxonomy();
+
+async function bootstrap(): Promise<void> {
+  showBlocking();
+  try {
+    await checkHealth();
+    await updateVaultTopicsDropdown();
+    await renderTaxonomy();
+  } finally {
+    hideBlocking();
+  }
+}
+
+void bootstrap();

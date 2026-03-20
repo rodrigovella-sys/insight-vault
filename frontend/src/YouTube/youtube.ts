@@ -1,5 +1,5 @@
 import { API_BASE } from "../config.js";
-import { toast } from "../ui.js";
+import { toast, showBlocking, hideBlocking } from "../ui.js";
 
 type Item = {
   id: string;
@@ -28,6 +28,7 @@ export async function submitYouTube(): Promise<void> {
   card?.classList.remove("visible", "success", "error");
 
   try {
+    showBlocking("Classificando…");
     const res = await fetch(`${API_BASE}/youtube`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,6 +50,8 @@ export async function submitYouTube(): Promise<void> {
     const summary = document.getElementById("resultSummaryYt");
     if (title) title.textContent = "Erro";
     if (summary) summary.textContent = (err as Error).message;
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -95,6 +98,7 @@ export async function confirmClassificationYt(): Promise<void> {
   if (!currentItemIdYt) return;
 
   try {
+    showBlocking("Confirmando…");
     const res = await fetch(`${API_BASE}/items/${currentItemIdYt}/confirm`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -116,6 +120,8 @@ export async function confirmClassificationYt(): Promise<void> {
     }
   } catch (e) {
     toast(`Erro: ${(e as Error).message}`);
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -142,6 +148,7 @@ export async function submitPlaylist(): Promise<void> {
   card?.classList.remove("visible", "success", "error");
 
   try {
+    showBlocking("Importando…");
     const res = await fetch(`${API_BASE}/youtube/playlist`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -160,6 +167,8 @@ export async function submitPlaylist(): Promise<void> {
     const summary = document.getElementById("resultSummaryPlaylist");
     if (title) title.textContent = "Erro";
     if (summary) summary.textContent = (err as Error).message;
+  } finally {
+    hideBlocking();
   }
 }
 

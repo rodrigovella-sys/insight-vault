@@ -1,5 +1,5 @@
 import { API_BASE } from "../config.js";
-import { toast } from "../ui.js";
+import { toast, showBlocking, hideBlocking } from "../ui.js";
 import { getPillars, getTopics } from "../Taxonomy/taxonomyApi.js";
 
 type Item = {
@@ -7,6 +7,7 @@ type Item = {
   filename?: string;
   driveFileId?: string;
   driveUrl?: string;
+  youtubeUrl?: string;
   original?: string;
   summary?: string;
   contextText?: string;
@@ -21,6 +22,145 @@ type Item = {
 let currentEditItem: Item | null = null;
 
 let taxonomyChangedBound = false;
+
+let vaultPage = 1;
+let vaultPageSize = 20;
+let vaultLastQueryKey = "";
+let vaultLastTotal = 0;
+let vaultLastMaxPage = 1;
+
+function syncVaultPageSizeSelects(): void {
+  const top = document.getElementById("vaultPageSizeTop") as HTMLSelectElement | null;
+  const bottom = document.getElementById("vaultPageSizeBottom") as HTMLSelectElement | null;
+  const val = String(vaultPageSize);
+  if (top && top.value !== val) top.value = val;
+  if (bottom && bottom.value !== val) bottom.value = val;
+}
+
+function updateVaultPagerUI(total: number): void {
+  const maxPage = Math.max(1, Math.ceil(total / Math.max(1, vaultPageSize)));
+  vaultLastMaxPage = maxPage;
+  const safePage = Math.max(1, Math.min(maxPage, vaultPage));
+  vaultPage = safePage;
+
+  const info = `Página ${safePage}/${maxPage} · ${total} itens`;
+
+  const infoTop = document.getElementById("vaultPageInfoTop");
+  const infoBottom = document.getElementById("vaultPageInfoBottom");
+  if (infoTop) infoTop.textContent = info;
+  if (infoBottom) infoBottom.textContent = info;
+
+  const prevDisabled = safePage <= 1;
+  const nextDisabled = safePage >= maxPage;
+
+  const pageInputTop = document.getElementById("vaultPageInputTop") as HTMLInputElement | null;
+  const pageInputBottom = document.getElementById("vaultPageInputBottom") as HTMLInputElement | null;
+  if (pageInputTop) {
+    pageInputTop.value = String(safePage);
+    pageInputTop.max = String(maxPage);
+  }
+  if (pageInputBottom) {
+    pageInputBottom.value = String(safePage);
+    pageInputBottom.max = String(maxPage);
+  }
+
+  const firstDisabled = safePage <= 1;
+  const lastDisabled = safePage >= maxPage;
+
+  const prevTop = document.getElementById("vaultPrevTop") as HTMLButtonElement | null;
+  const prevBottom = document.getElementById("vaultPrevBottom") as HTMLButtonElement | null;
+  const nextTop = document.getElementById("vaultNextTop") as HTMLButtonElement | null;
+  const nextBottom = document.getElementById("vaultNextBottom") as HTMLButtonElement | null;
+  const firstTop = document.getElementById("vaultFirstTop") as HTMLButtonElement | null;
+  const firstBottom = document.getElementById("vaultFirstBottom") as HTMLButtonElement | null;
+  const lastTop = document.getElementById("vaultLastTop") as HTMLButtonElement | null;
+  const lastBottom = document.getElementById("vaultLastBottom") as HTMLButtonElement | null;
+  if (firstTop) firstTop.disabled = firstDisabled;
+  if (firstBottom) firstBottom.disabled = firstDisabled;
+  if (prevTop) prevTop.disabled = prevDisabled;
+  if (prevBottom) prevBottom.disabled = prevDisabled;
+  if (nextTop) nextTop.disabled = nextDisabled;
+  if (nextBottom) nextBottom.disabled = nextDisabled;
+  if (lastTop) lastTop.disabled = lastDisabled;
+  if (lastBottom) lastBottom.disabled = lastDisabled;
+}
+
+export function vaultFirstPage(): void {
+  vaultPage = 1;
+  void loadVault();
+}
+
+export function vaultLastPage(): void {
+  const maxPage = Math.max(1, vaultLastMaxPage || Math.ceil(vaultLastTotal / Math.max(1, vaultPageSize)));
+  vaultPage = maxPage;
+  void loadVault();
+}
+
+export function vaultGoToPage(value: string | number): void {
+  const n = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n)) return;
+  const maxPage = Math.max(1, vaultLastMaxPage || Math.ceil(vaultLastTotal / Math.max(1, vaultPageSize)));
+  vaultPage = Math.max(1, Math.min(maxPage, n));
+  void loadVault();
+}
+
+export function vaultPrevPage(): void {
+  if (vaultPage <= 1) return;
+  vaultPage -= 1;
+  void loadVault();
+}
+
+export function vaultNextPage(): void {
+  const maxPage = Math.max(1, vaultLastMaxPage || Math.ceil(vaultLastTotal / Math.max(1, vaultPageSize)));
+  if (vaultPage >= maxPage) return;
+  vaultPage += 1;
+  void loadVault();
+}
+
+export function vaultSetPageSize(value: string | number): void {
+  const n = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n) || n <= 0) return;
+
+  vaultPageSize = Math.max(1, Math.min(200, n));
+  vaultPage = 1;
+  syncVaultPageSizeSelects();
+  void loadVault();
+}
+
+export async function openItemFile(id: string): Promise<void> {
+  let timeoutHandle: number | undefined;
+  const canAbort = typeof (window as any).AbortController !== "undefined";
+  const controller = canAbort ? new AbortController() : null;
+  try {
+    showBlocking("Abrindo…");
+    timeoutHandle = window.setTimeout(() => controller?.abort(), 15000);
+    const res = await fetch(`${API_BASE}/items/${encodeURIComponent(id)}/file?resolve=1`, {
+      signal: controller?.signal,
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({} as any));
+    const url = (data as any)?.url as string | undefined;
+    if (!res.ok || !url) {
+      toast("Arquivo não encontrado");
+      return;
+    }
+
+    const finalUrl = /^https?:\/\//i.test(url)
+      ? url
+      : `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+
+    window.open(finalUrl, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    if ((e as any)?.name === "AbortError") {
+      toast("Tempo esgotado ao abrir arquivo");
+    } else {
+      toast("Arquivo não encontrado");
+    }
+  } finally {
+    if (timeoutHandle) window.clearTimeout(timeoutHandle);
+    hideBlocking();
+  }
+}
 
 async function refreshPillarDropdownsPreserveSelection(): Promise<void> {
   const editPillar = document.getElementById("editPillar") as HTMLSelectElement | null;
@@ -48,6 +188,9 @@ async function refreshPillarDropdownsPreserveSelection(): Promise<void> {
 
   if (selectedEdit) editPillar.value = selectedEdit;
   if (selectedVault) vaultPillar.value = selectedVault;
+
+  // Keep the vault topic dropdown in sync with the selected pillar.
+  await updateVaultTopicsDropdown();
 }
 
 function bindTaxonomyChangedListener(): void {
@@ -115,7 +258,7 @@ export async function updateTopicsDropdown(): Promise<void> {
   if (!tSel) return;
 
   tSel.innerHTML = pid
-    ? '<option value="">Carregando...</option>'
+    ? '<option value="">…</option>'
     : '<option value="">Selecione...</option>';
   if (!pid) return;
 
@@ -131,6 +274,44 @@ export async function updateTopicsDropdown(): Promise<void> {
     });
   } catch {
     tSel.innerHTML = '<option value="">Erro ao carregar tópicos</option>';
+  }
+}
+
+export async function updateVaultTopicsDropdown(): Promise<void> {
+  const pid = (document.getElementById("vaultPillar") as HTMLSelectElement | null)?.value || "";
+  const tSel = document.getElementById("vaultTopic") as HTMLSelectElement | null;
+  if (!tSel) return;
+
+  const previous = tSel.value;
+
+  if (!pid) {
+    tSel.innerHTML = '<option value="">Todos os tópicos</option>';
+    tSel.value = "";
+    tSel.disabled = true;
+    return;
+  }
+
+  tSel.disabled = false;
+  tSel.innerHTML = '<option value="">…</option>';
+
+  try {
+    const topics = await getTopics(pid);
+    tSel.innerHTML = '<option value="">Todos os tópicos</option>';
+    topics.forEach((t) => {
+      const o = document.createElement("option");
+      o.value = t.id;
+      o.textContent = t.name;
+      tSel.appendChild(o);
+    });
+
+    if (previous && topics.some((t) => t.id === previous)) {
+      tSel.value = previous;
+    } else {
+      tSel.value = "";
+    }
+  } catch {
+    tSel.innerHTML = '<option value="">Erro ao carregar tópicos</option>';
+    tSel.value = "";
   }
 }
 
@@ -165,6 +346,7 @@ export async function saveReclassify(): Promise<void> {
   if (!currentEditItem) return;
 
   try {
+    showBlocking("Reclassificando…");
     const res = await fetch(`${API_BASE}/items/${currentEditItem.id}/reclassify`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -181,35 +363,52 @@ export async function saveReclassify(): Promise<void> {
     }
   } catch (e) {
     toast("Erro: " + (e as Error).message);
+  } finally {
+    hideBlocking();
   }
 }
 
 export async function loadVault(): Promise<void> {
   const searchRaw = ((document.getElementById("vaultSearch") as HTMLInputElement | null)?.value || "").trim();
-  const search = searchRaw.toLowerCase();
   const pillar = (document.getElementById("vaultPillar") as HTMLSelectElement | null)?.value || "";
+  const topicId = (document.getElementById("vaultTopic") as HTMLSelectElement | null)?.value || "";
   const status = (document.getElementById("vaultStatus") as HTMLSelectElement | null)?.value || "";
 
-  let url = `${API_BASE}/vault?limit=100`;
+  const queryKey = JSON.stringify({ searchRaw, pillar, topicId, status });
+  if (queryKey !== vaultLastQueryKey) {
+    vaultLastQueryKey = queryKey;
+    vaultPage = 1;
+  }
+
+  syncVaultPageSizeSelects();
+
+  const offset = (Math.max(1, vaultPage) - 1) * Math.max(1, vaultPageSize);
+
+  let url = `${API_BASE}/vault?limit=${encodeURIComponent(String(vaultPageSize))}&offset=${encodeURIComponent(String(offset))}`;
   if (pillar) url += `&pillar=${encodeURIComponent(pillar)}`;
+  if (topicId) url += `&topicId=${encodeURIComponent(topicId)}`;
   if (status) url += `&status=${encodeURIComponent(status)}`;
   if (searchRaw) url += `&search=${encodeURIComponent(searchRaw)}`;
 
+  showBlocking();
   try {
     const res = await fetch(url);
     const data = await res.json().catch(() => ({}));
 
-    let items: Item[] = Array.isArray(data) ? (data as Item[]) : ((data as any).items || []);
+    const isArray = Array.isArray(data);
+    const items: Item[] = isArray ? (data as Item[]) : (((data as any).items as Item[]) || []);
+    const total = isArray ? items.length : (Number((data as any).total) || 0);
 
-    if (search) {
-      items = items.filter(
-        (i) =>
-          (i.original || "").toLowerCase().includes(search) ||
-          (i.summary || "").toLowerCase().includes(search) ||
-          (i.pillarName || "").toLowerCase().includes(search) ||
-          (i.topicName || "").toLowerCase().includes(search)
-      );
+    vaultLastTotal = total;
+
+    const maxPage = Math.max(1, Math.ceil(total / Math.max(1, vaultPageSize)));
+    if (total > 0 && vaultPage > maxPage) {
+      vaultPage = maxPage;
+      await loadVault();
+      return;
     }
+
+    updateVaultPagerUI(total);
 
     const grid = document.getElementById("vaultGrid");
     if (!grid) return;
@@ -227,10 +426,9 @@ export async function loadVault(): Promise<void> {
         const pillarName = item.pillarName || "Sem classe";
         const topicName = item.topicName || "";
 
-        const fileHref = item.driveUrl || `${API_BASE}/items/${encodeURIComponent(item.id)}/file`;
-        const hasFileLink = Boolean(item.driveUrl || item.driveFileId || item.filename);
+        const hasFileLink = Boolean(item.driveUrl || item.driveFileId || item.filename || item.youtubeUrl);
         const filePill = hasFileLink
-          ? `<a class="vault-pill" href="${fileHref}" target="_blank" rel="noopener noreferrer" style="text-decoration:none" onclick="event.stopPropagation()">Arquivo</a>`
+          ? `<a class="vault-pill" href="#" rel="noopener noreferrer" style="text-decoration:none" onclick="event.stopPropagation(); openItemFile('${item.id}'); return false;">Arquivo</a>`
           : "";
 
         const itemJson = JSON.stringify(item).replace(/'/g, "\\'");
@@ -243,5 +441,7 @@ export async function loadVault(): Promise<void> {
     if (grid) {
       grid.innerHTML = `<div class="empty-state"><p style="color:#ff6b6b">Erro: ${(e as Error).message}</p></div>`;
     }
+  } finally {
+    hideBlocking();
   }
 }

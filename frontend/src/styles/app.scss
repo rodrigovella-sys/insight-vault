@@ -58,9 +58,21 @@ header p{color:var(--muted);font-size:14px}
 .spinner.visible{display:block}
 .spinner-ring{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.blocking-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px}
+.blocking-overlay.visible{display:flex}
+.blocking-card{background:var(--panel);border:1px solid var(--border);border-radius:18px;max-width:420px;width:100%;padding:22px;text-align:center}
+.blocking-text{font-size:13px;color:var(--muted)}
 .filter-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
 .filter-bar select,.filter-bar input{background:rgba(15,26,46,.65);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;font-size:13px;outline:none}
 .filter-bar input{flex:1;min-width:200px}
+.vault-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;background:rgba(15,26,46,.5);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+#vaultPagerBottom{margin-top:12px}
+.vault-pager-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vault-pager-right{display:flex;align-items:center;gap:8px}
+.vault-page-info{font-size:12px;color:var(--muted)}
+.vault-page-label{font-size:12px;color:var(--muted)}
+.vault-pager select{background:rgba(15,26,46,.65);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:10px;font-size:13px;outline:none}
+.vault-pager input{width:86px;max-width:120px;background:rgba(15,26,46,.65);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:10px;font-size:13px;outline:none}
 .vault-grid{display:flex;flex-direction:column;gap:10px}
 .vault-item{background:rgba(15,26,46,.55);border:1px solid var(--border);border-radius:14px;padding:14px 16px;transition:border-color .2s;cursor:pointer}
 .vault-item:hover{border-color:rgba(124,92,255,.4)}
@@ -90,5 +102,5 @@ header p{color:var(--muted);font-size:14px}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
 .edit-icon{font-size:14px;padding:4px 8px;border-radius:6px;background:rgba(124,92,255,.15);cursor:pointer;transition:all .2s}
 .edit-icon:hover{background:rgba(124,92,255,.25)}
-#toast{position:fixed;bottom:24px;right:24px;background:#1e2038;border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .3s;z-index:999}
+#toast{position:fixed;top:24px;right:24px;background:#1e2038;border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:13px;transform:translateY(-80px);opacity:0;transition:all .3s;z-index:3000}
 #toast.show{transform:translateY(0);opacity:1}

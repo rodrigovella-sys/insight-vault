@@ -56,7 +56,12 @@ async function extractText(buffer, mimetype) {
 
 async function createAppContext() {
   // DB (Postgres-only)
-  const postgresEnabled = await postgres.init();
+  const migrateOnStartup = String(process.env.DB_MIGRATE_ON_STARTUP || 'true').toLowerCase() !== 'false';
+  if (!migrateOnStartup) {
+    console.warn('[DB] migrations disabled on startup (DB_MIGRATE_ON_STARTUP=false)');
+  }
+
+  const postgresEnabled = await postgres.init({ migrate: migrateOnStartup });
   if (!postgresEnabled) {
     const err = new Error('Postgres is not configured (missing DATABASE_URL)');
     err.status = 500;

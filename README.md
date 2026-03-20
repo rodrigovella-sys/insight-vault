@@ -73,6 +73,8 @@ npm run dev
 
 Backend sobe em `http://localhost:3000` (ou `PORT`).
 
+Obs: por padrão, o backend executa migrações/seed do Postgres ao subir. Se você prefere rodar migração manualmente, defina `DB_MIGRATE_ON_STARTUP=false` no `backend/.env.local` e execute `cd backend && npm run db:migrate` quando necessário.
+
 #### Organização do backend (módulos)
 
 - `backend/server.js`: somente boot do Express + montagem dos endpoints.

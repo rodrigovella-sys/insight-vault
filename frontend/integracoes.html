@@ -187,7 +187,7 @@
             placeholder="Search vault…"
             oninput="loadVault()"
           />
-          <select id="vaultPillar" onchange="loadVault()">
+          <select id="vaultPillar" onchange="updateVaultTopicsDropdown(); loadVault()">
             <option value="">All Pillars</option>
             <option value="P1">P1 – Personal Development</option>
             <option value="P2">P2 – Health & Wellbeing</option>
@@ -198,6 +198,9 @@
             <option value="P7">P7 – Values & Integrity</option>
             <option value="P8">P8 – Family & Legacy</option>
           </select>
+          <select id="vaultTopic" onchange="loadVault()" disabled>
+            <option value="">All Topics</option>
+          </select>
           <select id="vaultStatus" onchange="loadVault()">
             <option value="">All Status</option>
             <option value="classified">Classified</option>
@@ -207,10 +210,50 @@
           </select>
           <button class="btn" onclick="loadVault()">🔄 Refresh</button>
         </div>
+
+        <div class="vault-pager" id="vaultPagerTop">
+          <div class="vault-pager-left">
+            <button class="btn sm" id="vaultFirstTop" onclick="vaultFirstPage()">⏮️</button>
+            <button class="btn sm" id="vaultPrevTop" onclick="vaultPrevPage()">⬅️</button>
+            <input id="vaultPageInputTop" type="number" min="1" inputmode="numeric" onchange="vaultGoToPage(this.value)" onkeydown="if(event.key==='Enter'){vaultGoToPage(this.value)}" />
+            <button class="btn sm" id="vaultNextTop" onclick="vaultNextPage()">➡️</button>
+            <button class="btn sm" id="vaultLastTop" onclick="vaultLastPage()">⏭️</button>
+            <span class="vault-page-info" id="vaultPageInfoTop"></span>
+          </div>
+          <div class="vault-pager-right">
+            <span class="vault-page-label">Items/page</span>
+            <select id="vaultPageSizeTop" onchange="vaultSetPageSize(this.value)">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
         <div class="vault-grid" id="vaultGrid">
           <div class="empty-state">
             <div class="big">🗄</div>
             <p>Upload content to start building your vault.</p>
+          </div>
+        </div>
+
+        <div class="vault-pager" id="vaultPagerBottom">
+          <div class="vault-pager-left">
+            <button class="btn sm" id="vaultFirstBottom" onclick="vaultFirstPage()">⏮️</button>
+            <button class="btn sm" id="vaultPrevBottom" onclick="vaultPrevPage()">⬅️</button>
+            <input id="vaultPageInputBottom" type="number" min="1" inputmode="numeric" onchange="vaultGoToPage(this.value)" onkeydown="if(event.key==='Enter'){vaultGoToPage(this.value)}" />
+            <button class="btn sm" id="vaultNextBottom" onclick="vaultNextPage()">➡️</button>
+            <button class="btn sm" id="vaultLastBottom" onclick="vaultLastPage()">⏭️</button>
+            <span class="vault-page-info" id="vaultPageInfoBottom"></span>
+          </div>
+          <div class="vault-pager-right">
+            <span class="vault-page-label">Items/page</span>
+            <select id="vaultPageSizeBottom" onchange="vaultSetPageSize(this.value)">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
           </div>
         </div>
       </div>

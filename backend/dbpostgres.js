@@ -8,6 +8,25 @@ const { PILLARS } = require('./taxonomy');
 let pool = null;
 let enabled = false;
 
+function isSqlLoggingEnabled() {
+  return String(process.env.DB_LOG_SQL || '').toLowerCase() === 'true';
+}
+
+function safeJson(value) {
+  try {
+    const s = JSON.stringify(value);
+    // Avoid flooding logs if params contain large payloads.
+    return s && s.length > 2000 ? `${s.slice(0, 2000)}…` : s;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+function logSql(sql, params) {
+  if (!isSqlLoggingEnabled()) return;
+  console.log('[sql]', sql, 'params:', safeJson(params));
+}
+
 function normalizeSqlForPostgres(sql) {
   let out = String(sql || '');
 
@@ -238,9 +257,29 @@ async function migrate(client) {
 
   // Indexes (best-effort)
   await client.query('CREATE INDEX IF NOT EXISTS idx_topics_pillarid ON topics (pillarid)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_topics_pillarid_sort_name ON topics (pillarid, sort, name)');
+  // Helps case-insensitive lookup used by createTopic (without enforcing uniqueness).
+  await client.query('CREATE INDEX IF NOT EXISTS idx_topics_pillarid_lower_name ON topics (pillarid, lower(name))');
   await client.query('CREATE INDEX IF NOT EXISTS idx_itemtopics_topicid ON itemtopics (topicid)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_itemtopics_itemid ON itemtopics (itemid)');
   await client.query('CREATE INDEX IF NOT EXISTS idx_items_videoid ON items (videoid)');
+
+  // Vault hot path: filters + ORDER BY createdAt DESC
+  await client.query('CREATE INDEX IF NOT EXISTS idx_items_createdat_desc ON items (createdat DESC)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_items_pillarid_topicid_createdat_desc ON items (pillarid, topicid, createdat DESC)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_items_status_createdat_desc ON items (status, createdat DESC)');
+
+  // Vault text search hot path: LIKE '%...%'
+  // Requires pg_trgm extension. This can fail on managed Postgres without privileges,
+  // so we treat it as best-effort and keep startup working.
+  try {
+    await client.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_items_summary_trgm ON items USING gin (summary gin_trgm_ops)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_items_original_trgm ON items USING gin (original gin_trgm_ops)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_items_tags_trgm ON items USING gin (tags gin_trgm_ops)');
+  } catch (e) {
+    console.warn(`[DB] pg_trgm/trigram indexes not created: ${e.message}`);
+  }
 }
 
 async function seedTaxonomy(client) {
@@ -284,12 +323,14 @@ async function seedTaxonomy(client) {
   }
 }
 
-async function init() {
+async function init(options = {}) {
   const url = process.env.DATABASE_URL;
   if (!url) {
     enabled = false;
     return false;
   }
+
+  const migrateOnInit = options.migrate !== false;
 
   const sslDisabled = String(process.env.DISABLE_PG_SSL || '').toLowerCase() === 'true';
 
@@ -299,11 +340,25 @@ async function init() {
     max: 5,
   });
 
-  // Validate connectivity + run migrations.
+  // Validate connectivity + (optionally) run migrations.
   const client = await pool.connect();
   try {
-    await migrate(client);
-    await seedTaxonomy(client);
+    if (migrateOnInit) {
+      await migrate(client);
+      await seedTaxonomy(client);
+    } else {
+      // Ensure DB is reachable, and fail early with a clearer message if schema isn't present.
+      try {
+        await client.query('SELECT 1 FROM items LIMIT 1');
+      } catch (e) {
+        if (e && e.code === '42P01') {
+          const err = new Error('Postgres schema not found. Run migrations manually (npm run db:migrate) or set DB_MIGRATE_ON_STARTUP=true.');
+          err.status = 500;
+          throw err;
+        }
+        throw e;
+      }
+    }
   } finally {
     client.release();
   }
@@ -337,10 +392,12 @@ async function queryRaw(sql, params) {
   if (params.length === 1 && params[0] && typeof params[0] === 'object' && !Array.isArray(params[0])) {
     const { sql: namedSql, values } = convertNamedParams(normalized, params[0]);
     normalized = convertPlaceholders(namedSql); // allow mixed @name + ? (rare)
+    logSql(normalized, values);
     return pool.query(normalized, values);
   }
 
   normalized = convertPlaceholders(normalized);
+  logSql(normalized, params);
   return pool.query(normalized, params);
 }
 
@@ -361,11 +418,13 @@ async function withTransaction(fn) {
       if (params.length === 1 && params[0] && typeof params[0] === 'object' && !Array.isArray(params[0])) {
         const { sql: namedSql, values } = convertNamedParams(normalized, params[0]);
         normalized = convertPlaceholders(namedSql);
+        logSql(normalized, values);
         const res = await client.query(normalized, values);
         return res;
       }
 
       normalized = convertPlaceholders(normalized);
+      logSql(normalized, params);
       return client.query(normalized, params);
     };
 

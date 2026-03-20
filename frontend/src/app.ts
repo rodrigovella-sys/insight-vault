@@ -1,14 +1,22 @@
 import { API_BASE } from "./config.js";
-import { setIndicator, setStatus, toast } from "./ui.js";
+import { setIndicator, setStatus, toast, showBlocking, hideBlocking } from "./ui.js";
 import { initUpload, confirmClassification, resetUpload } from "./Upload/upload.js";
 import { submitYouTube, confirmClassificationYt, resetYouTube, submitPlaylist, resetPlaylist } from "./YouTube/youtube.js";
 import {
   loadVault,
+  vaultFirstPage,
+  vaultLastPage,
+  vaultGoToPage,
+  vaultPrevPage,
+  vaultNextPage,
+  vaultSetPageSize,
   populatePillarDropdowns,
   updateTopicsDropdown,
+  updateVaultTopicsDropdown,
   openEditModal,
   closeEditModal,
-  saveReclassify
+  saveReclassify,
+  openItemFile
 } from "./Vault/vault.js";
 import { renderTaxonomy } from "./Taxonomy/taxonomy.js";
 
@@ -28,6 +36,13 @@ async function checkHealth(): Promise<void> {
     const r = await fetch(`${API_BASE}/health`);
     const d = await r.json();
     setStatus(`Backend online · ${d.items} items · v${d.version}`, "ok");
+
+    setIndicator(
+      "postgresDot",
+      "postgresText",
+      `DB: ${d.db || "postgres"}`,
+      "ok"
+    );
 
     const driveEnabled = Boolean(d.driveEnabled ?? d.drive === "enabled");
     setIndicator(
@@ -54,6 +69,7 @@ async function checkHealth(): Promise<void> {
     );
   } catch {
     setStatus("Backend offline", "err");
+    setIndicator("postgresDot", "postgresText", "DB: —", "err");
     setIndicator("driveDot", "driveText", "Upload: —", "loading");
     setIndicator("openaiDot", "openaiText", "OpenAI: —", "loading");
     setIndicator("youtubeDot", "youtubeText", "YouTube: —", "loading");
@@ -75,15 +91,33 @@ w.submitPlaylist = submitPlaylist;
 w.resetPlaylist = resetPlaylist;
 
 w.loadVault = loadVault;
+w.vaultFirstPage = vaultFirstPage;
+w.vaultLastPage = vaultLastPage;
+w.vaultGoToPage = vaultGoToPage;
+w.vaultPrevPage = vaultPrevPage;
+w.vaultNextPage = vaultNextPage;
+w.vaultSetPageSize = vaultSetPageSize;
 
 w.updateTopicsDropdown = updateTopicsDropdown;
+w.updateVaultTopicsDropdown = updateVaultTopicsDropdown;
 w.openEditModal = openEditModal;
+w.openItemFile = openItemFile;
 w.closeEditModal = closeEditModal;
 w.saveReclassify = saveReclassify;
 
 w.toast = toast;
 
 initUpload({ onAfterSuccess: () => void checkHealth() });
-void checkHealth();
-void populatePillarDropdowns();
-void renderTaxonomy();
+
+async function bootstrap(): Promise<void> {
+  showBlocking();
+  try {
+    await checkHealth();
+    await populatePillarDropdowns();
+    await renderTaxonomy();
+  } finally {
+    hideBlocking();
+  }
+}
+
+void bootstrap();

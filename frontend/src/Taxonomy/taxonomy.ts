@@ -1,4 +1,5 @@
 import { createTopic, getPillars, getTopics } from "./taxonomyApi.js";
+import { showBlocking, hideBlocking } from "../ui.js";
 
 export async function renderTaxonomy(): Promise<void> {
   const grid = document.getElementById("taxonomyGrid");
@@ -66,6 +67,7 @@ export async function renderTaxonomy(): Promise<void> {
 
       if (saveBtn) saveBtn.disabled = true;
       try {
+        showBlocking("Salvando…");
         await createTopic(pillarId, name);
         if (input) input.value = "";
         form.hidden = true;
@@ -73,6 +75,7 @@ export async function renderTaxonomy(): Promise<void> {
       } catch (e) {
         if (err) err.textContent = (e as Error).message;
       } finally {
+        hideBlocking();
         if (saveBtn) saveBtn.disabled = false;
       }
     });

@@ -1,5 +1,5 @@
 import { API_BASE } from "../config.js";
-import { toast } from "../ui.js";
+import { toast, showBlocking, hideBlocking } from "../ui.js";
 
 type Item = {
   id: string;
@@ -54,6 +54,7 @@ async function handleFile(file: File, onAfterSuccess?: () => void): Promise<void
   fd.append("file", file);
 
   try {
+    showBlocking("Processando…");
     const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
     const data = await res.json().catch(() => ({}));
     spinner.classList.remove("visible");
@@ -68,6 +69,8 @@ async function handleFile(file: File, onAfterSuccess?: () => void): Promise<void
   } catch (err) {
     spinner.classList.remove("visible");
     showError((err as Error).message, file.name);
+  } finally {
+    hideBlocking();
   }
 }
 
@@ -138,6 +141,7 @@ export async function confirmClassification(): Promise<void> {
   if (!currentItemId) return;
 
   try {
+    showBlocking("Confirmando…");
     const res = await fetch(`${API_BASE}/items/${currentItemId}/confirm`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -159,6 +163,8 @@ export async function confirmClassification(): Promise<void> {
     }
   } catch (e) {
     toast(`Erro: ${(e as Error).message}`);
+  } finally {
+    hideBlocking();
   }
 }
 
