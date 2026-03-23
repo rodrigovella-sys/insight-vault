@@ -14,8 +14,9 @@ async function uploadFile(ctx, { file }) {
   const mimetype = file.mimetype;
   const size = file.size;
   const buffer = file.buffer;
-  const ext = path.extname(original).toLowerCase();
-  const filename = `${id}${ext}`;
+  const currentDate = new Date().toISOString().split('T')[0];
+  const rawFilename = path.basename(file.filename || original);
+  const filename = `${currentDate}-${rawFilename}`;
 
   const text = await ctx.extractText(buffer, mimetype);
 
@@ -28,7 +29,7 @@ async function uploadFile(ctx, { file }) {
   let driveUrl = null;
   const pillarFolder = `${pillar.id} - ${pillar.name_pt}`;
   const topicFolder = `${topic.id} - ${topic.name}`;
-
+  
   if (ctx.driveEnabled) {
     try {
       const uploaded = await ctx.drive.upload(buffer, filename, mimetype, [pillarFolder, topicFolder]);
