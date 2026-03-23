@@ -31,6 +31,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Serve the frontend (static HTML/CSS/JS) when deployed as a single Render service.
+// This makes /assets/* and /favicon.ico work and avoids CSS being served as a 404 text response.
+const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+if (fs.existsSync(FRONTEND_DIR)) {
+  app.use(express.static(FRONTEND_DIR));
+}
+
 async function main() {
   const ctx = await createAppContext();
 
