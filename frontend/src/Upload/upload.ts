@@ -13,6 +13,7 @@ type Item = {
   topicName?: string;
   confidence?: number;
   rationale?: string;
+  duplicate?: boolean;
 };
 
 let currentItemId: string | null = null;
@@ -64,6 +65,9 @@ async function handleFile(file: File, onAfterSuccess?: () => void): Promise<void
     }
 
     const item: Item = (data as any).item || (data as any);
+    if (item.duplicate) {
+      toast("Esse arquivo já estava no Vault (sem duplicar)");
+    }
     showResult(item, file.name);
     onAfterSuccess?.();
   } catch (err) {

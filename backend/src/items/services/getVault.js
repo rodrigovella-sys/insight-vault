@@ -16,9 +16,10 @@ async function getVault(ctx, { pillar, topicId, status, search, limit, offset } 
   }
   if (search) {
     // Postgres-only backend: ILIKE provides case-insensitive matching.
-    whereSql += ' AND (summary ILIKE ? OR tags ILIKE ? OR original ILIKE ? OR pillarName ILIKE ? OR topicName ILIKE ?)';
+    whereSql +=
+      ' AND (summary ILIKE ? OR tags ILIKE ? OR original ILIKE ? OR pillarName ILIKE ? OR topicName ILIKE ? OR filename ILIKE ? OR playlist ILIKE ? OR videoId ILIKE ? OR youtubeUrl ILIKE ?)';
     const s = `%${search}%`;
-    params.push(s, s, s, s, s);
+    params.push(s, s, s, s, s, s, s, s, s);
   }
 
   const wantsPagination = Number.isFinite(Number(limit)) || Number.isFinite(Number(offset));
