@@ -38,6 +38,13 @@ if (fs.existsSync(FRONTEND_DIR)) {
   app.use(express.static(FRONTEND_DIR));
 }
 
+// Avoid noisy 404s in the browser console when no favicon is provided.
+app.get('/favicon.ico', (req, res) => {
+  const faviconPath = fs.existsSync(FRONTEND_DIR) ? path.join(FRONTEND_DIR, 'favicon.ico') : null;
+  if (faviconPath && fs.existsSync(faviconPath)) return res.sendFile(faviconPath);
+  return res.status(204).end();
+});
+
 async function main() {
   const ctx = await createAppContext();
 

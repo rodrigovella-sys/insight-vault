@@ -4,6 +4,7 @@
   "description": "AI-native personal knowledge vault - Google Drive Edition",
   "main": "server.js",
   "scripts": {
+    "postinstall": "node scripts/build-frontend-if-present.js",
     "build": "node --check server.js",
     "start": "node server.js",
     "start:dev": "nodemon server.js",
