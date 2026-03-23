@@ -9,8 +9,8 @@ const pdfParse = require('pdf-parse');
 
 const postgres = require('./dbpostgres');
 const { PILLARS } = require('./taxonomy');
-const googleDrive = require('./google/googledrive');
-const oneDrive = require('./microsoft/onedrive');
+const googleDrive = require('./src/google/googledrive');
+const oneDrive = require('./src/microsoft/onedrive');
 
 function itemRowToApi(row) {
   if (!row) return row;
