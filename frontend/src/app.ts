@@ -80,6 +80,20 @@ async function checkHealth(): Promise<void> {
 const w = window as any;
 w.switchTab = switchTab;
 
+w.viewVaultForLastPlaylist = () => {
+  const playlistId = String(localStorage.getItem("lastPlaylistId") || "").trim();
+  const vaultSearch = document.getElementById("vaultSearch") as HTMLInputElement | null;
+  if (vaultSearch && playlistId) {
+    vaultSearch.value = playlistId;
+  }
+
+  const tabs = document.querySelectorAll(".tab");
+  const vaultTab = (tabs?.[2] as HTMLElement | undefined) || null;
+  if (vaultTab) {
+    switchTab("vault", vaultTab);
+  }
+};
+
 w.confirmClassification = confirmClassification;
 w.resetUpload = resetUpload;
 

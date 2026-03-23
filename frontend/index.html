@@ -213,12 +213,6 @@
             📋 Importar
           </button>
         </div>
-        <div class="spinner" id="spinnerPlaylist">
-          <div class="spinner-ring"></div>
-          <p style="color: var(--muted); font-size: 13px">
-            Importando e classificando vídeos...
-          </p>
-        </div>
         <div class="result-card" id="resultCardPlaylist">
           <div class="result-header">
             <div class="emoji">📋</div>
@@ -231,7 +225,7 @@
             </button>
             <button
               class="btn"
-              onclick="switchTab('vault', document.querySelectorAll('.tab')[2])"
+              onclick="viewVaultForLastPlaylist()"
             >
               🗄 Ver Vault
             </button>

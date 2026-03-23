@@ -22,6 +22,13 @@ export async function submitYouTube(): Promise<void> {
   const url = input.value.trim();
   if (!url) return toast("Cole um link");
 
+  // If the user pasted a playlist URL, guide them to the playlist importer.
+  const playlistOnly = /[?&]list=/.test(url) && !/(?:[?&]v=|youtu\.be\/|shorts\/|embed\/|live\/)[A-Za-z0-9_-]{11}/.test(url);
+  if (playlistOnly) {
+    toast("Esse link é de playlist. Use 'Importar playlist'.");
+    return;
+  }
+
   const spinner = document.getElementById("spinnerYt") as HTMLElement | null;
   const card = document.getElementById("resultCardYt") as HTMLElement | null;
   spinner?.classList.add("visible");
@@ -142,13 +149,19 @@ export async function submitPlaylist(): Promise<void> {
   const url = input.value.trim();
   if (!url) return toast("Cole um link");
 
+  const match = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  const playlistId = match?.[1] || "";
+  if (playlistId) {
+    localStorage.setItem("lastPlaylistId", playlistId);
+  }
+
   const spinner = document.getElementById("spinnerPlaylist") as HTMLElement | null;
   const card = document.getElementById("resultCardPlaylist") as HTMLElement | null;
   spinner?.classList.add("visible");
   card?.classList.remove("visible", "success", "error");
 
   try {
-    showBlocking("Importando…");
+    showBlocking();
     const res = await fetch(`${API_BASE}/youtube/playlist`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -172,7 +185,7 @@ export async function submitPlaylist(): Promise<void> {
   }
 }
 
-function showPlaylistResult(data: { imported?: number; total?: number; message?: string }): void {
+function showPlaylistResult(data: { imported?: number; total?: number; alreadyImported?: number; playlistId?: string; skipped?: number; failed?: number }): void {
   const card = document.getElementById("resultCardPlaylist") as HTMLElement | null;
   if (!card) return;
 
@@ -181,24 +194,18 @@ function showPlaylistResult(data: { imported?: number; total?: number; message?:
   const title = document.getElementById("resultTitlePlaylist");
   const summary = document.getElementById("resultSummaryPlaylist");
 
-  if (typeof data.imported !== "number") {
-    const total = typeof data.total === "number" ? data.total : "";
-    const msg = data.message || `Processando${total ? ` ${total}` : ""} vídeos...`;
-    if (title) title.textContent = "Playlist recebida";
-    if (summary) {
-      summary.innerHTML = `<div style="font-size:14px;margin-bottom:12px">${msg}</div><p style="font-size:12px;color:var(--muted)">Veja na aba Vault em alguns minutos</p>`;
-    }
-    toast(msg);
-    return;
-  }
+  const imported = typeof data.imported === "number" ? data.imported : 0;
+  const total = typeof data.total === "number" ? data.total : imported;
+  const failed = typeof data.failed === "number" ? data.failed : Math.max(0, total - imported);
+  const already = typeof data.alreadyImported === "number" ? data.alreadyImported : 0;
 
-  const imported = data.imported;
-  const total = data.total || imported;
-  const failed = Math.max(0, total - imported);
+  if (typeof data.playlistId === "string" && data.playlistId.trim()) {
+    localStorage.setItem("lastPlaylistId", data.playlistId.trim());
+  }
 
   if (title) title.textContent = `${imported} de ${total} vídeos!`;
   if (summary) {
-    summary.innerHTML = `<div style="font-size:14px;margin-bottom:12px">✅ <strong>${imported}</strong> classificados<br>${failed > 0 ? `⚠️ <strong>${failed}</strong> falharam` : ""}</div><p style="font-size:12px;color:var(--muted)">Veja na aba Vault</p>`;
+    summary.innerHTML = `<div style="font-size:14px;margin-bottom:12px">✅ <strong>${imported}</strong> importados<br>${already > 0 ? `♻️ <strong>${already}</strong> já existiam<br>` : ""}${failed > 0 ? `⚠️ <strong>${failed}</strong> falharam` : ""}</div><p style="font-size:12px;color:var(--muted)">Veja na aba Vault</p>`;
   }
 
   toast(`${imported} vídeos importados! 🎉`);

@@ -1,6 +1,9 @@
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const { v4: uuidv4, v5: uuidv5 } = require('uuid');
+
+const UUID_NAMESPACE = '0a7b3c2e-8c2b-4e3d-9e0a-2f6e3b2e1a11';
 
 async function uploadFile(ctx, { file }) {
   if (!file) {
@@ -9,7 +12,6 @@ async function uploadFile(ctx, { file }) {
     throw err;
   }
 
-  const id = uuidv4();
   const original = file.originalname;
   const mimetype = file.mimetype;
   const size = file.size;
@@ -17,6 +19,14 @@ async function uploadFile(ctx, { file }) {
   const currentDate = new Date().toISOString().split('T')[0];
   const rawFilename = path.basename(file.filename || original);
   const filename = `${currentDate}-${rawFilename}`;
+
+  // Deduplicate uploads by content hash (same file uploaded multiple times).
+  const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
+  const id = uuidv5(`file:${contentHash}`, UUID_NAMESPACE);
+  const existing = await ctx.db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+  if (existing) {
+    return { ...ctx.itemRowToApi(existing), duplicate: true };
+  }
 
   const text = await ctx.extractText(buffer, mimetype);
 
@@ -54,7 +64,7 @@ async function uploadFile(ctx, { file }) {
     .prepare(
       `
       INSERT INTO items
-        (id, filename, original, mimetype, size, text, summary, tags,
+        (id, filename, original, mimetype, size, text, summary, tags, metadataJson,
          pillarId, pillarName, topicId, topicName, confidence, rationale,
          driveFileId, driveUrl, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classified')
@@ -69,6 +79,7 @@ async function uploadFile(ctx, { file }) {
       String(text || '').slice(0, 5000),
       result.summary,
       JSON.stringify(result.tags || []),
+      JSON.stringify({ contentHash }),
       dbTaxonomy.pillarId,
       dbTaxonomy.pillarName,
       dbTaxonomy.topicId,
