@@ -4,25 +4,32 @@
   "description": "AI-native personal knowledge vault - Google Drive Edition",
   "main": "server.js",
   "scripts": {
+    "build": "node --check server.js",
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start:dev": "nodemon server.js",
+    "db:migrate": "node data/db-migrate.js",
+    "inspect:xlsx": "node data/inspect-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\"",
+    "import:xlsx": "node data/import-xlsx.js \"data/biblioteca_narrativa_8_pilares.xlsx\" --truncate",
+    "debug:db": "node data/debug-db.js --counts --sample-xlsx",
+    "auth:onedrive": "node data/get-onedrive-refresh-token.js"
   },
   "dependencies": {
+    "axios": "^1.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
+    "googleapis": "^134.0.0",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.47.1",
-    "uuid": "^9.0.1",
-    "axios": "^1.7.2",
-    "better-sqlite3": "^9.4.3",
     "pdf-parse": "^1.1.1",
-    "googleapis": "^134.0.0"
+    "pg": "^8.13.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "xlsx": "^0.18.5"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=20.0.0"
   }
 }

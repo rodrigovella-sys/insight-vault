@@ -1,0 +1,38 @@
+# Node
+node_modules/
+
+# Env files
+.env
+backend/.env
+frontend/.env
+.env.local
+backend/.env.local
+frontend/.env.local
+**/.env.local
+
+# Local databases / uploads / backups
+backend/vault.db
+backend/uploads/
+backend/backups/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Frontend build output
+frontend/assets/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / tooling
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
