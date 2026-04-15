@@ -28,39 +28,6 @@ Para habilitar Google Drive, configure no `backend/.env.local`:
 - `GOOGLE_OAUTH_CLIENT_SECRET`
 - `GOOGLE_OAUTH_REFRESH_TOKEN`
 
-Para obter `GOOGLE_OAUTH_REFRESH_TOKEN` (uma vez só):
-
-- Garanta que a tela de consentimento OAuth está configurada no seu projeto Google Cloud.
-- Use o OAuth Playground (ou outro fluxo OAuth2) com o escopo `https://www.googleapis.com/auth/drive`.
-- Marque `Access type: offline` e force o consentimento (`prompt=consent`) para receber `refresh_token` na primeira autorização.
-
-### OneDrive (Microsoft Graph) — enviar arquivos
-
-O backend também suporta OneDrive via Microsoft Graph. Se as variáveis do OneDrive estiverem configuradas, ele será usado com prioridade sobre o Google Drive.
-
-Variáveis necessárias no `backend/.env.local`:
-
-- `ONEDRIVE_CLIENT_ID`
-- `ONEDRIVE_REFRESH_TOKEN`
-- (opcional) `ONEDRIVE_CLIENT_SECRET` (se você registrar como "public client", não precisa)
-- (opcional) `ONEDRIVE_TENANT_ID` (padrão: `common`)
-- (opcional) `ONEDRIVE_FOLDER_ID` (se omitido, usa a raiz do OneDrive)
-
-Login (para obter `ONEDRIVE_REFRESH_TOKEN`):
-
-1) Crie um App Registration no Microsoft Entra ID (Azure AD).
-2) Em **API permissions**, adicione Microsoft Graph (Delegated): `Files.ReadWrite.All`, `User.Read` e `offline_access`.
-3) Em **Certificates & secrets**, crie um `client secret`.
-4) Em **Authentication**, adicione o Redirect URI: `http://localhost:3005/auth/microsoft/callback`.
-5) Rode o helper local:
-
-```bash
-cd backend
-npm run auth:onedrive
-```
-
-6) Abra `http://localhost:3005/auth/microsoft`, faça login e consentimento; o refresh token será impresso no terminal.
-
 Obs: o backend também aceita `backend/.env` como fallback, mas o padrão local é usar `.env.local` (que não deve ir para o repositório).
 
 2) Instale e rode:

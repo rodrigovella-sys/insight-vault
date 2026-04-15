@@ -37,7 +37,6 @@ function init() {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !refreshToken) {
     console.warn(
@@ -47,7 +46,7 @@ function init() {
   }
 
   try {
-    oauthClient = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    oauthClient = new google.auth.OAuth2(clientId, clientSecret);
     oauthClient.setCredentials({ refresh_token: refreshToken });
     driveClient = google.drive({ version: 'v3', auth: oauthClient });
     console.warn('✓ enabled (OAuth2) Google Drive client initialized');

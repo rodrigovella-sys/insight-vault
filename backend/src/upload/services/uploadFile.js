@@ -46,13 +46,7 @@ async function uploadFile(ctx, { file }) {
       driveFileId = uploaded.id;
       driveUrl = uploaded.url;
     } catch (errPrimary) {
-      if (ctx.driveSecondaryEnabled && ctx.driveSecondary) {
-        const uploaded = await ctx.driveSecondary.upload(buffer, filename, mimetype, [pillarFolder, topicFolder]);
-        driveFileId = uploaded.id;
-        driveUrl = uploaded.url;
-      } else {
-        throw errPrimary;
-      }
+      throw errPrimary;
     }
   } else {
     fs.writeFileSync(path.join(ctx.UPLOAD_DIR, filename), buffer);
